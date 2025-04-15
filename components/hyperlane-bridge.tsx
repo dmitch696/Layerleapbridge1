@@ -97,7 +97,7 @@ export default function HyperlaneBridge() {
               id="sourceChain"
               className="w-full p-2 bg-gray-700 rounded"
               value={sourceChain}
-              onChange={(e) => setSourceChain(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSourceChain(e.target.value)}
             >
               <option value="">Select source chain</option>
               {chains.map((chain) => (
@@ -120,7 +120,7 @@ export default function HyperlaneBridge() {
               id="destChain"
               className="w-full p-2 bg-gray-700 rounded"
               value={destChain}
-              onChange={(e) => setDestChain(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDestChain(e.target.value)}
             >
               <option value="">Select destination chain</option>
               {chains.map((chain) => (
@@ -137,7 +137,7 @@ export default function HyperlaneBridge() {
               id="token"
               className="w-full p-2 bg-gray-700 rounded"
               value={token}
-              onChange={(e) => setToken(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setToken(e.target.value)}
             >
               <option value="">Select token</option>
               {tokens.map((token) => (
@@ -155,7 +155,7 @@ export default function HyperlaneBridge() {
               type="text"
               placeholder="0.0"
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAmount(e.target.value)}
               className="bg-gray-700 border-gray-600"
             />
           </div>
