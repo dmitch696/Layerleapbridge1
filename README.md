@@ -62,10 +62,6 @@ module.exports = {
     base: {
       url: "https://mainnet.base.org",
       accounts: [process.env.PRIVATE_KEY]
-    },
-    avalanche: {
-      url: "https://api.avax.network/ext/bc/C/rpc",
-      accounts: [process.env.PRIVATE_KEY]
     }
   },
   etherscan: {
@@ -74,8 +70,7 @@ module.exports = {
       optimisticEthereum: process.env.OPTIMISM_API_KEY,
       arbitrumOne: process.env.ARBISCAN_API_KEY,
       polygon: process.env.POLYGONSCAN_API_KEY,
-      base: process.env.BASESCAN_API_KEY,
-      avalanche: process.env.SNOWTRACE_API_KEY
+      base: process.env.BASESCAN_API_KEY
     }
   }
 };
@@ -91,7 +86,6 @@ npx hardhat run scripts/deploy-fee-collector.js --network optimism
 npx hardhat run scripts/deploy-fee-collector.js --network arbitrum
 npx hardhat run scripts/deploy-fee-collector.js --network polygon
 npx hardhat run scripts/deploy-fee-collector.js --network base
-npx hardhat run scripts/deploy-fee-collector.js --network avalanche
 \`\`\`
 
 ### 5. Update the Frontend
@@ -106,7 +100,6 @@ const feeCollectorAddresses = {
   10: "0x...", // Deployed contract address on Optimism
   137: "0x...", // Deployed contract address on Polygon
   8453: "0x...", // Deployed contract address on Base
-  43114: "0x...", // Deployed contract address on Avalanche
 }
 \`\`\`
 
@@ -136,7 +129,7 @@ To monitor collected fees:
 
 Let's also update the BridgeFeeCollector contract to ensure it's using the correct Hyperlane and LayerZero interfaces:
 
-```solidity file="contracts/BridgeFeeCollector.sol"
+\`\`\`solidity file="contracts/BridgeFeeCollector.sol"
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 

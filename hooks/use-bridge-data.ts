@@ -25,7 +25,6 @@ const chains: Chain[] = [
   { id: "optimism", name: "Optimism", logo: "🔴", chainId: 10 },
   { id: "polygon", name: "Polygon", logo: "🟣", chainId: 137 },
   { id: "base", name: "Base", logo: "🔵", chainId: 8453 },
-  { id: "avalanche", name: "Avalanche", logo: "🔺", chainId: 43114 },
 ]
 
 // Token data with addresses on different chains
@@ -41,7 +40,6 @@ const tokens: Token[] = [
       "10": "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE", // Native ETH on Optimism
       "137": "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619", // WETH on Polygon
       "8453": "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE", // Native ETH on Base
-      "43114": "0x49D5c2BdFfac6CE2BFdB6640F4F80f226bc10bAB", // WETH on Avalanche
     },
   },
   {
@@ -55,7 +53,6 @@ const tokens: Token[] = [
       "10": "0x7F5c764cBc14f9669B88837ca1490cCa17c31607", // USDC on Optimism
       "137": "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", // USDC on Polygon
       "8453": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // USDC on Base
-      "43114": "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E", // USDC on Avalanche
     },
   },
   {
@@ -69,7 +66,6 @@ const tokens: Token[] = [
       "10": "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58", // USDT on Optimism
       "137": "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", // USDT on Polygon
       "8453": "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb", // USDT on Base
-      "43114": "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7", // USDT on Avalanche
     },
   },
   {
@@ -83,7 +79,6 @@ const tokens: Token[] = [
       "10": "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1", // DAI on Optimism
       "137": "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063", // DAI on Polygon
       "8453": "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb", // DAI on Base
-      "43114": "0xd586E7F844cEa2F87f50152665BCbc2C279D8d70", // DAI on Avalanche
     },
   },
 ]

@@ -55,10 +55,6 @@ export default function ProtocolInfo() {
                       <span>🔵</span>
                       <span>Base</span>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <span>🔺</span>
-                      <span>Avalanche</span>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -121,10 +117,6 @@ export default function ProtocolInfo() {
                     <div className="flex items-center space-x-2">
                       <span>🔵</span>
                       <span>Base</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <span>🔺</span>
-                      <span>Avalanche</span>
                     </div>
                   </div>
                 </div>

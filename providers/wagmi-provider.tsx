@@ -7,10 +7,10 @@ import { publicProvider } from "wagmi/providers/public"
 import { MetaMaskConnector } from "wagmi/connectors/metaMask"
 import { WalletConnectConnector } from "wagmi/connectors/walletConnect"
 import { CoinbaseWalletConnector } from "wagmi/connectors/coinbaseWallet"
-import { mainnet, arbitrum, optimism, polygon, base, avalanche } from "wagmi/chains"
+import { mainnet, arbitrum, optimism, polygon, base } from "wagmi/chains"
 
 const { chains, publicClient, webSocketPublicClient } = configureChains(
-  [mainnet, arbitrum, optimism, polygon, base, avalanche],
+  [mainnet, arbitrum, optimism, polygon, base],
   [publicProvider()],
 )
 

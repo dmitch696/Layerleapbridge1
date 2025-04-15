@@ -88,7 +88,6 @@ const protocolContracts = {
     "10": "0x3c61b93B64f59B5AD5286facD5Fc30805A4A32f0", // Optimism
     "137": "0x3c61b93B64f59B5AD5286facD5Fc30805A4A32f0", // Polygon
     "8453": "0x3c61b93B64f59B5AD5286facD5Fc30805A4A32f0", // Base
-    "43114": "0x3c61b93B64f59B5AD5286facD5Fc30805A4A32f0", // Avalanche
   },
   layerzero: {
     "1": "0x66A71Dcef29A0fFBDBE3c6a460a3B5BC225Cd675", // Ethereum
@@ -96,7 +95,6 @@ const protocolContracts = {
     "10": "0x66A71Dcef29A0fFBDBE3c6a460a3B5BC225Cd675", // Optimism
     "137": "0x66A71Dcef29A0fFBDBE3c6a460a3B5BC225Cd675", // Polygon
     "8453": "0x66A71Dcef29A0fFBDBE3c6a460a3B5BC225Cd675", // Base
-    "43114": "0x66A71Dcef29A0fFBDBE3c6a460a3B5BC225Cd675", // Avalanche
   },
 }
 
@@ -107,7 +105,6 @@ const layerZeroChainIds = {
   "10": 111, // Optimism
   "137": 109, // Polygon
   "8453": 184, // Base
-  "43114": 106, // Avalanche
 }
 
 export type BridgeParams = {

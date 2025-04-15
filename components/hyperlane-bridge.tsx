@@ -15,7 +15,6 @@ const chains = [
   { id: "optimism", name: "Optimism", logo: "🔴" },
   { id: "polygon", name: "Polygon", logo: "🟣" },
   { id: "base", name: "Base", logo: "🔵" },
-  { id: "avalanche", name: "Avalanche", logo: "🔺" },
 ]
 
 // Token data

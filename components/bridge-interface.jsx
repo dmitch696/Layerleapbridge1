@@ -39,13 +39,6 @@ const chains = [
     rpcUrl: "https://mainnet.base.org",
     explorer: "https://basescan.org/tx/",
   },
-  {
-    id: "avalanche",
-    name: "Avalanche",
-    chainId: 43114,
-    rpcUrl: "https://api.avax.network/ext/bc/C/rpc",
-    explorer: "https://snowtrace.io/tx/",
-  },
 ]
 
 // Token data with addresses
