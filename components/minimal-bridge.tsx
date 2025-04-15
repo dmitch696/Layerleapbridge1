@@ -1,20 +1,33 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import { useWallet } from "@/hooks/use-wallet"
 
 // Chain data
-const chains = [
+type Chain = {
+  id: string
+  name: string
+  chainId: number
+}
+
+type Token = {
+  id: string
+  name: string
+  decimals: number
+}
+
+const chains: Chain[] = [
   { id: "ethereum", name: "Ethereum", chainId: 1 },
   { id: "arbitrum", name: "Arbitrum", chainId: 42161 },
   { id: "optimism", name: "Optimism", chainId: 10 },
   { id: "polygon", name: "Polygon", chainId: 137 },
   { id: "base", name: "Base", chainId: 8453 },
-  { id: "avalanche", name: "Avalanche", chainId: 43114 },
 ]
 
 // Token data
-const tokens = [
+const tokens: Token[] = [
   { id: "eth", name: "ETH", decimals: 18 },
   { id: "usdc", name: "USDC", decimals: 6 },
   { id: "usdt", name: "USDT", decimals: 6 },
@@ -23,14 +36,14 @@ const tokens = [
 
 export default function MinimalBridge() {
   const { address, isConnected, chainId, switchNetwork } = useWallet()
-  const [protocol, setProtocol] = useState("hyperlane")
-  const [sourceChain, setSourceChain] = useState("")
-  const [destChain, setDestChain] = useState("")
-  const [token, setToken] = useState("")
-  const [amount, setAmount] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [bridgeFee, setBridgeFee] = useState("~0.001 ETH")
-  const [estimatedTime, setEstimatedTime] = useState("~15 minutes")
+  const [protocol, setProtocol] = useState<"hyperlane" | "layerzero">("hyperlane")
+  const [sourceChain, setSourceChain] = useState<string>("")
+  const [destChain, setDestChain] = useState<string>("")
+  const [token, setToken] = useState<string>("")
+  const [amount, setAmount] = useState<string>("")
+  const [isLoading, setIsLoading] = useState<boolean>(false)
+  const [bridgeFee, setBridgeFee] = useState<string>("~0.001 ETH")
+  const [estimatedTime, setEstimatedTime] = useState<string>("~15 minutes")
 
   // Set source chain based on connected network
   useEffect(() => {
@@ -48,7 +61,7 @@ export default function MinimalBridge() {
     setDestChain(temp)
   }
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
 
     if (!isConnected) {
@@ -88,7 +101,7 @@ export default function MinimalBridge() {
       setAmount("")
     } catch (error) {
       console.error("Bridge error:", error)
-      alert(`Bridge failed: ${error.message}`)
+      alert(`Bridge failed: ${(error as Error).message}`)
     } finally {
       setIsLoading(false)
     }
@@ -124,7 +137,7 @@ export default function MinimalBridge() {
           <select
             className="w-full p-2 bg-gray-700 rounded"
             value={sourceChain}
-            onChange={(e) => setSourceChain(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSourceChain(e.target.value)}
           >
             <option value="">Select source chain</option>
             {chains.map((chain) => (
@@ -146,7 +159,7 @@ export default function MinimalBridge() {
           <select
             className="w-full p-2 bg-gray-700 rounded"
             value={destChain}
-            onChange={(e) => setDestChain(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDestChain(e.target.value)}
           >
             <option value="">Select destination chain</option>
             {chains.map((chain) => (
@@ -159,7 +172,11 @@ export default function MinimalBridge() {
 
         <div>
           <label className="block mb-1">Token</label>
-          <select className="w-full p-2 bg-gray-700 rounded" value={token} onChange={(e) => setToken(e.target.value)}>
+          <select
+            className="w-full p-2 bg-gray-700 rounded"
+            value={token}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setToken(e.target.value)}
+          >
             <option value="">Select token</option>
             {tokens.map((token) => (
               <option key={token.id} value={token.id}>
@@ -176,7 +193,7 @@ export default function MinimalBridge() {
             className="w-full p-2 bg-gray-700 rounded"
             placeholder="0.0"
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAmount(e.target.value)}
           />
         </div>
 

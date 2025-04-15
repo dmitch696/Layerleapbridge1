@@ -21,7 +21,7 @@ function WalletConnectComponent() {
       {isConnected ? (
         <div className="flex items-center gap-2">
           <span className="text-sm hidden md:inline-block">
-            {address.slice(0, 6)}...{address.slice(-4)}
+            {address?.slice(0, 6)}...{address?.slice(-4)}
           </span>
           <Button variant="outline" size="sm" onClick={disconnect}>
             Disconnect

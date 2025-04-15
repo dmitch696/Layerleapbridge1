@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 
 export function useWallet() {
   const [address, setAddress] = useState<string | null>(null)
-  const [isConnected, setIsConnected] = useState(false)
+  const [isConnected, setIsConnected] = useState<boolean>(false)
   const [chainId, setChainId] = useState<number | null>(null)
 
   // Check if MetaMask is available
@@ -44,7 +44,7 @@ export function useWallet() {
   // Switch network
   const switchNetwork = useCallback(
     async (newChainId: number) => {
-      if (!isMetaMaskAvailable || !isConnected) return
+      if (!isMetaMaskAvailable || !isConnected) return false
 
       try {
         // Convert chain ID to hexadecimal
