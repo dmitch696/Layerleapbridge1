@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useToast } from "@/components/ui/use-toast"
+import { useToast } from "@/hooks/use-toast"
 
 // Chain data
 const chains = [
@@ -47,11 +47,7 @@ export default function HyperlaneBridge() {
     e.preventDefault()
 
     if (!sourceChain || !destChain || !token || !amount) {
-      toast({
-        title: "Missing information",
-        description: "Please fill in all fields",
-        variant: "destructive",
-      })
+      toast("Please fill in all fields", "error")
       return
     }
 
@@ -61,20 +57,13 @@ export default function HyperlaneBridge() {
       // Simulate a delay
       await new Promise((resolve) => setTimeout(resolve, 1500))
 
-      toast({
-        title: "Bridge initiated",
-        description: `Bridging ${amount} ${token.toUpperCase()} from ${sourceChain} to ${destChain}`,
-      })
+      toast(`Bridging ${amount} ${token.toUpperCase()} from ${sourceChain} to ${destChain}`, "success")
 
       // Reset form
       setAmount("")
     } catch (error) {
       console.error("Bridge error:", error)
-      toast({
-        title: "Bridge failed",
-        description: "An error occurred while bridging your assets",
-        variant: "destructive",
-      })
+      toast("An error occurred while bridging your assets", "error")
     } finally {
       setIsLoading(false)
     }
