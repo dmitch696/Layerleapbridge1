@@ -1,7 +1,5 @@
 "use client"
 
-import React from "react"
-
 import { useState, useEffect } from "react"
 import { useNotifications } from "./notifications-container"
 
@@ -569,116 +567,116 @@ export default function BridgeInterface() {
     }
   }
 
-  const handleBridge = async (e: React.FormEvent<HTMLFormElement>) => {
-   e.preventDefault()
+  const handleBridge = async (e) => {
+    e.preventDefault()
 
-   if (!isConnected) {
-     await connectWallet()
-     return
-   }
+    if (!isConnected) {
+      await connectWallet()
+      return
+    }
 
-   if (!sourceChain || !destChain || !token || !amount) {
-     addNotification("Please fill in all fields", "error")
-     return
-   }
+    if (!sourceChain || !destChain || !token || !amount) {
+      addNotification("Please fill in all fields", "error")
+      return
+    }
 
-   // Validate amount
-   if (isNaN(Number.parseFloat(amount)) || Number.parseFloat(amount) <= 0) {
-     addNotification("Please enter a valid amount", "error")
-     return
-   }
+    // Validate amount
+    if (isNaN(Number.parseFloat(amount)) || Number.parseFloat(amount) <= 0) {
+      addNotification("Please enter a valid amount", "error")
+      return
+    }
 
-   setIsLoading(true)
-   setTxStatus(null)
-   setTxHash(null)
+    setIsLoading(true)
+    setTxStatus(null)
+    setTxHash(null)
 
-   try {
-     // Get objects for source chain, destination chain, and token
-     const sourceChainObj = chains.find((c) => c.id === sourceChain)
-     const destChainObj = chains.find((c) => c.id === destChain)
-     const tokenObj = tokens.find((t) => t.id === token)
+    try {
+      // Get objects for source chain, destination chain, and token
+      const sourceChainObj = chains.find((c) => c.id === sourceChain)
+      const destChainObj = chains.find((c) => c.id === destChain)
+      const tokenObj = tokens.find((t) => t.id === token)
 
-     if (!sourceChainObj || !destChainObj || !tokenObj) {
-       throw new Error("Invalid selection")
-     }
+      if (!sourceChainObj || !destChainObj || !tokenObj) {
+        throw new Error("Invalid selection")
+      }
 
-     // Switch network if needed
-     if (chainId !== sourceChainObj.chainId) {
-       try {
-         addNotification(`Switching to ${sourceChainObj.name} network...`, "info")
+      // Switch network if needed
+      if (chainId !== sourceChainObj.chainId) {
+        try {
+          addNotification(`Switching to ${sourceChainObj.name} network...`, "info")
 
-         // Check if the chain is already added to MetaMask
-         try {
-           await window.ethereum.request({
-             method: "wallet_switchEthereumChain",
-             params: [{ chainId: `0x${sourceChainObj.chainId.toString(16)}` }],
-           })
-         } catch (switchError: any) {
-           // Chain not added, add it
-           if (switchError.code === 4902) {
-             await window.ethereum.request({
-               method: "wallet_addEthereumChain",
-               params: [
-                 {
-                   chainId: `0x${sourceChainObj.chainId.toString(16)}`,
-                   chainName: sourceChainObj.name,
-                   nativeCurrency: {
-                     name: "Ether",
-                     symbol: "ETH",
-                     decimals: 18,
-                   },
-                   rpcUrls: [sourceChainObj.rpcUrl],
-                   blockExplorerUrls: [sourceChainObj.explorer.replace("/tx/", "")],
-                 },
-               ],
-             })
-           } else {
-             throw switchError
-           }
-         }
+          // Check if the chain is already added to MetaMask
+          try {
+            await window.ethereum.request({
+              method: "wallet_switchEthereumChain",
+              params: [{ chainId: `0x${sourceChainObj.chainId.toString(16)}` }],
+            })
+          } catch (switchError) {
+            // Chain not added, add it
+            if (switchError.code === 4902) {
+              await window.ethereum.request({
+                method: "wallet_addEthereumChain",
+                params: [
+                  {
+                    chainId: `0x${sourceChainObj.chainId.toString(16)}`,
+                    chainName: sourceChainObj.name,
+                    nativeCurrency: {
+                      name: "Ether",
+                      symbol: "ETH",
+                      decimals: 18,
+                    },
+                    rpcUrls: [sourceChainObj.rpcUrl],
+                    blockExplorerUrls: [sourceChainObj.explorer.replace("/tx/", "")],
+                  },
+                ],
+              })
+            } else {
+              throw switchError
+            }
+          }
 
-         // Update chainId after switching
-         const chainIdHex = await window.ethereum.request({ method: "eth_chainId" })
-         setChainId(Number.parseInt(chainIdHex, 16))
-       } catch (error) {
-         console.error("Failed to switch network:", error)
-         addNotification("Failed to switch network. Please try again.", "error")
-         setIsLoading(false)
-         return
-       }
-     }
+          // Update chainId after switching
+          const chainIdHex = await window.ethereum.request({ method: "eth_chainId" })
+          setChainId(Number.parseInt(chainIdHex, 16))
+        } catch (error) {
+          console.error("Failed to switch network:", error)
+          addNotification("Failed to switch network. Please try again.", "error")
+          setIsLoading(false)
+          return
+        }
+      }
 
-     // For non-native tokens, check allowance and approve if needed
-     if (!tokenObj.isNative) {
-       // We need to approve the fee collector contract
-       const feeCollectorAddress = feeCollectorAddresses[sourceChainObj.chainId.toString()]
+      // For non-native tokens, check allowance and approve if needed
+      if (!tokenObj.isNative) {
+        // We need to approve the fee collector contract
+        const feeCollectorAddress = feeCollectorAddresses[sourceChainObj.chainId.toString()]
 
-       addNotification("Checking token allowance...", "info")
-       const hasAllowance = await checkAllowance(tokenObj, sourceChainObj, feeCollectorAddress)
+        addNotification("Checking token allowance...", "info")
+        const hasAllowance = await checkAllowance(tokenObj, sourceChainObj, feeCollectorAddress)
 
-       if (!hasAllowance) {
-         addNotification("Token approval required", "info")
-         const approved = await approveToken(tokenObj, sourceChainObj, feeCollectorAddress)
+        if (!hasAllowance) {
+          addNotification("Token approval required", "info")
+          const approved = await approveToken(tokenObj, sourceChainObj, feeCollectorAddress)
 
-         if (!approved) {
-           setIsLoading(false)
-           return
-         }
-       }
-     }
+          if (!approved) {
+            setIsLoading(false)
+            return
+          }
+        }
+      }
 
-     // Execute bridge transaction
-     await executeBridgeTransaction(sourceChainObj, destChainObj, tokenObj)
+      // Execute bridge transaction
+      await executeBridgeTransaction(sourceChainObj, destChainObj, tokenObj)
 
-     // Reset amount
-     setAmount("")
-   } catch (error) {
-     console.error("Bridge error:", error)
-     addNotification(`Bridge failed: ${error.message}`, "error")
-   } finally {
-     setIsLoading(false)
-   }
- }
+      // Reset amount
+      setAmount("")
+    } catch (error) {
+      console.error("Bridge error:", error)
+      addNotification(`Bridge failed: ${error.message}`, "error")
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   return (
     <div className="w-full max-w-md bg-gray-800 rounded-lg p-6">

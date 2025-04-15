@@ -29,7 +29,7 @@ const tokens = [
 ]
 
 export default function HyperlaneBridge() {
-  const { toast } = useToast()
+  const { addToast } = useToast()
   const [protocol, setProtocol] = useState<"hyperlane" | "layerzero">("hyperlane")
   const [sourceChain, setSourceChain] = useState("")
   const [destChain, setDestChain] = useState("")
@@ -47,7 +47,7 @@ export default function HyperlaneBridge() {
     e.preventDefault()
 
     if (!sourceChain || !destChain || !token || !amount) {
-      toast("Please fill in all fields", "error")
+      addToast("Please fill in all fields", "error")
       return
     }
 
@@ -57,13 +57,13 @@ export default function HyperlaneBridge() {
       // Simulate a delay
       await new Promise((resolve) => setTimeout(resolve, 1500))
 
-      toast(`Bridging ${amount} ${token.toUpperCase()} from ${sourceChain} to ${destChain}`, "success")
+      addToast(`Bridging ${amount} ${token.toUpperCase()} from ${sourceChain} to ${destChain}`, "success")
 
       // Reset form
       setAmount("")
     } catch (error) {
       console.error("Bridge error:", error)
-      toast("An error occurred while bridging your assets", "error")
+      addToast("An error occurred while bridging your assets", "error")
     } finally {
       setIsLoading(false)
     }
