@@ -11,28 +11,31 @@ export function useWallet() {
   const isMetaMaskAvailable = typeof window !== "undefined" && window.ethereum !== undefined
 
   // Connect to MetaMask
-  const connect = useCallback(async () => {
-    if (!isMetaMaskAvailable) {
-      alert("MetaMask is not installed. Please install MetaMask to use this feature.")
-      return
-    }
-
-    try {
-      // Request account access
-      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" })
-
-      if (accounts.length > 0) {
-        setAddress(accounts[0])
-        setIsConnected(true)
-
-        // Get current chain ID
-        const chainIdHex = await window.ethereum.request({ method: "eth_chainId" })
-        setChainId(Number.parseInt(chainIdHex, 16))
+  const connect = useCallback(
+    async (connector?: string) => {
+      if (!isMetaMaskAvailable) {
+        alert("MetaMask is not installed. Please install MetaMask to use this feature.")
+        return
       }
-    } catch (error) {
-      console.error("Error connecting to MetaMask:", error)
-    }
-  }, [isMetaMaskAvailable])
+
+      try {
+        // Request account access
+        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" })
+
+        if (accounts.length > 0) {
+          setAddress(accounts[0])
+          setIsConnected(true)
+
+          // Get current chain ID
+          const chainIdHex = await window.ethereum.request({ method: "eth_chainId" })
+          setChainId(Number.parseInt(chainIdHex, 16))
+        }
+      } catch (error) {
+        console.error("Error connecting to MetaMask:", error)
+      }
+    },
+    [isMetaMaskAvailable],
+  )
 
   // Disconnect from MetaMask
   const disconnect = useCallback(() => {

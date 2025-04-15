@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
+import WalletConnectComponent from "@/components/wallet-connect"
 
 export default function Header() {
   return (
@@ -23,9 +23,7 @@ export default function Header() {
           </Link>
         </nav>
 
-        <Button variant="outline" size="sm">
-          Connect Wallet
-        </Button>
+        <WalletConnectComponent />
       </div>
     </header>
   )

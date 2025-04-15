@@ -1,5 +1,5 @@
 "use client"
-import { useWallet } from "@/providers/wallet-provider"
+import { useWallet } from "@/hooks/use-wallet"
 import {
   Dialog,
   DialogClose,
