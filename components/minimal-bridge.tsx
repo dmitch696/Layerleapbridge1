@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import { useWallet } from "@/hooks/use-wallet"
 import { useToast } from "@/hooks/use-toast"
@@ -51,7 +53,7 @@ export default function MinimalBridge() {
     setDestChain(temp)
   }
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
 
     if (!isConnected) {
@@ -89,7 +91,7 @@ export default function MinimalBridge() {
 
       // Reset form
       setAmount("")
-    } catch (error) {
+    } catch (error: any) {
       console.error("Bridge error:", error)
       addToast(`Bridge failed: ${error.message}`, "error")
     } finally {
