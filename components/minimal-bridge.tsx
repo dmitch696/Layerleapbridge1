@@ -1,10 +1,7 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
 import { useWallet } from "@/hooks/use-wallet"
-import { useToast } from "@/hooks/use-toast"
 
 // Chain data
 const chains = [
@@ -26,8 +23,6 @@ const tokens = [
 
 export default function MinimalBridge() {
   const { address, isConnected, chainId, switchNetwork } = useWallet()
-  const { addToast } = useToast()
-
   const [protocol, setProtocol] = useState("hyperlane")
   const [sourceChain, setSourceChain] = useState("")
   const [destChain, setDestChain] = useState("")
@@ -53,16 +48,16 @@ export default function MinimalBridge() {
     setDestChain(temp)
   }
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
 
     if (!isConnected) {
-      addToast("Please connect your wallet first", "error")
+      alert("Please connect your wallet first")
       return
     }
 
     if (!sourceChain || !destChain || !token || !amount) {
-      addToast("Please fill in all fields", "error")
+      alert("Please fill in all fields")
       return
     }
 
@@ -74,7 +69,7 @@ export default function MinimalBridge() {
 
       // Switch network if needed
       if (sourceChainObj && chainId !== sourceChainObj.chainId) {
-        addToast(`Switching to ${sourceChainObj.name} network...`, "info")
+        alert(`Switching to ${sourceChainObj.name} network...`)
         const switched = await switchNetwork(sourceChainObj.chainId)
         if (!switched) {
           throw new Error("Failed to switch network")
@@ -87,13 +82,13 @@ export default function MinimalBridge() {
       // Generate a mock transaction hash
       const txHash = `0x${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("")}`
 
-      addToast(`Bridge transaction submitted! Tx: ${txHash.slice(0, 10)}...${txHash.slice(-8)}`, "success")
+      alert(`Bridge transaction submitted! Tx: ${txHash.slice(0, 10)}...${txHash.slice(-8)}`)
 
       // Reset form
       setAmount("")
-    } catch (error: any) {
+    } catch (error) {
       console.error("Bridge error:", error)
-      addToast(`Bridge failed: ${error.message}`, "error")
+      alert(`Bridge failed: ${error.message}`)
     } finally {
       setIsLoading(false)
     }

@@ -2,7 +2,15 @@
 
 import * as React from "react"
 
-import type { ToastActionElement, ToastProps } from "@/components/ui/toast"
+type ToastProps = {
+  id: string
+  title?: React.ReactNode
+  description?: React.ReactNode
+  action?: React.ReactElement
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  variant?: "default" | "destructive"
+}
 
 const TOAST_LIMIT = 5
 const TOAST_REMOVE_DELAY = 5000
@@ -11,7 +19,7 @@ type ToasterToast = ToastProps & {
   id: string
   title?: React.ReactNode
   description?: React.ReactNode
-  action?: ToastActionElement
+  action?: React.ReactElement
 }
 
 const actionTypes = {
@@ -172,7 +180,7 @@ function useToast() {
   }
 }
 
-export { useToast }
+export { useToast, toast }
 
 const ToastContext = React.createContext({
   toasts: [],

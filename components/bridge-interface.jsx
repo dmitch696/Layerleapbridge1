@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useNotifications } from "./notifications-container"
 
 // Chain data with RPC URLs and explorer links
 const chains = [
@@ -56,230 +55,28 @@ const tokens = [
     name: "ETH",
     decimals: 18,
     isNative: true,
-    addresses: {
-      1: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE", // Native ETH
-      42161: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE", // Native ETH on Arbitrum
-      10: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE", // Native ETH on Optimism
-      137: "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619", // WETH on Polygon
-      8453: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE", // Native ETH on Base
-      43114: "0x49D5c2BdFfac6CE2BFdB6640F4F80f226bc10bAB", // WETH on Avalanche
-    },
   },
   {
     id: "usdc",
     name: "USDC",
     decimals: 6,
     isNative: false,
-    addresses: {
-      1: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", // USDC on Ethereum
-      42161: "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8", // USDC on Arbitrum
-      10: "0x7F5c764cBc14f9669B88837ca1490cCa17c31607", // USDC on Optimism
-      137: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", // USDC on Polygon
-      8453: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // USDC on Base
-      43114: "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E", // USDC on Avalanche
-    },
   },
   {
     id: "usdt",
     name: "USDT",
     decimals: 6,
     isNative: false,
-    addresses: {
-      1: "0xdAC17F958D2ee523a2206206994597C13D831ec7", // USDT on Ethereum
-      42161: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", // USDT on Arbitrum
-      10: "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58", // USDT on Optimism
-      137: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", // USDT on Polygon
-      8453: "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb", // USDT on Base
-      43114: "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7", // USDT on Avalanche
-    },
   },
   {
     id: "dai",
     name: "DAI",
     decimals: 18,
     isNative: false,
-    addresses: {
-      1: "0x6B175474E89094C44Da98b954EedeAC495271d0F", // DAI on Ethereum
-      42161: "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1", // DAI on Arbitrum
-      10: "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1", // DAI on Optimism
-      137: "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063", // DAI on Polygon
-      8453: "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb", // DAI on Base
-      43114: "0xd586E7F844cEa2F87f50152665BCbc2C279D8d70", // DAI on Avalanche
-    },
   },
 ]
-
-// Hyperlane domain IDs (different from EVM chain IDs)
-const hyperlaneDomains = {
-  1: 1, // Ethereum
-  42161: 42161, // Arbitrum
-  10: 10, // Optimism
-  137: 137, // Polygon
-  8453: 8453, // Base
-  43114: 43114, // Avalanche
-}
-
-// LayerZero chain IDs (different from EVM chain IDs)
-const layerZeroChainIds = {
-  1: 101, // Ethereum
-  42161: 110, // Arbitrum
-  10: 111, // Optimism
-  137: 109, // Polygon
-  8453: 184, // Base
-  43114: 106, // Avalanche
-}
-
-// Fee collector contract addresses (deployed on each chain)
-const feeCollectorAddresses = {
-  1: "0x3F919B89a03c546BCe66120616F13461578FD8Ff", // Your wallet address for Ethereum
-  42161: "0x3F919B89a03c546BCe66120616F13461578FD8Ff", // Your wallet address for Arbitrum
-  10: "0xEa26A7813E4CE4836D0242fE7E3835716970c883", // Your new SimpleBridge contract on Optimism
-  137: "0x3F919B89a03c546BCe66120616F13461578FD8Ff", // Your wallet address for Polygon
-  8453: "0x3F919B89a03c546BCe66120616F13461578FD8Ff", // Your wallet address for Base
-  43114: "0x3F919B89a03c546BCe66120616F13461578FD8Ff", // Your wallet address for Avalanche
-}
-
-// Fee collector ABI
-const feeCollectorAbi = [
-  {
-    inputs: [
-      {
-        name: "destinationChainId",
-        type: "uint32",
-      },
-      {
-        name: "recipient",
-        type: "address",
-      },
-    ],
-    name: "bridgeNativeViaHyperlane",
-    outputs: [
-      {
-        name: "messageId",
-        type: "bytes32",
-      },
-    ],
-    stateMutability: "payable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        name: "destinationChainId",
-        type: "uint16",
-      },
-      {
-        name: "recipient",
-        type: "bytes",
-      },
-      {
-        name: "adapterParams",
-        type: "bytes",
-      },
-    ],
-    name: "bridgeNativeViaLayerZero",
-    outputs: [],
-    stateMutability: "payable",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "withdrawFees",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-]
-
-// ERC20 ABI for token approvals
-const erc20Abi = [
-  {
-    constant: false,
-    inputs: [
-      {
-        name: "spender",
-        type: "address",
-      },
-      {
-        name: "amount",
-        type: "uint256",
-      },
-    ],
-    name: "approve",
-    outputs: [
-      {
-        name: "",
-        type: "bool",
-      },
-    ],
-    payable: false,
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    constant: true,
-    inputs: [
-      {
-        name: "owner",
-        type: "address",
-      },
-      {
-        name: "spender",
-        type: "address",
-      },
-    ],
-    name: "allowance",
-    outputs: [
-      {
-        name: "",
-        type: "uint256",
-      },
-    ],
-    payable: false,
-    stateMutability: "view",
-    type: "function",
-  },
-]
-
-// Helper function to format amounts with decimals
-function parseAmount(amount, decimals) {
-  // Remove any commas
-  amount = amount.replace(/,/g, "")
-
-  // Convert to BigInt with proper decimals
-  const parts = amount.split(".")
-  let result = parts[0]
-
-  if (parts.length > 1) {
-    let fraction = parts[1]
-    // Pad with zeros if needed
-    if (fraction.length < decimals) {
-      fraction = fraction.padEnd(decimals, "0")
-    } else if (fraction.length > decimals) {
-      fraction = fraction.substring(0, decimals)
-    }
-    result += fraction
-  } else {
-    // No decimal point, add zeros
-    result += "0".repeat(decimals)
-  }
-
-  return result
-}
-
-// Helper function to properly encode hex data without 0x prefix
-function encodeHex(value, byteLength) {
-  // Convert to hex and remove 0x prefix if present
-  let hex = value.toString(16)
-
-  // Pad with zeros to the required byte length
-  hex = hex.padStart(byteLength * 2, "0")
-
-  return hex
-}
 
 export default function BridgeInterface() {
-  const { addNotification } = useNotifications()
   const [protocol, setProtocol] = useState("hyperlane")
   const [sourceChain, setSourceChain] = useState("")
   const [destChain, setDestChain] = useState("")
@@ -293,7 +90,6 @@ export default function BridgeInterface() {
   const [txStatus, setTxStatus] = useState(null)
   const [bridgeFee, setBridgeFee] = useState("~0.0003 ETH")
   const [estimatedTime, setEstimatedTime] = useState("~15 minutes")
-  const [platformFeeInfo, setPlatformFeeInfo] = useState("50% of fees support platform development")
 
   // Check if wallet is connected
   useEffect(() => {
@@ -391,179 +187,14 @@ export default function BridgeInterface() {
           const chainIdHex = await window.ethereum.request({ method: "eth_chainId" })
           setChainId(Number.parseInt(chainIdHex, 16))
 
-          addNotification("Wallet connected successfully", "success")
+          alert("Wallet connected successfully")
         }
       } catch (error) {
         console.error("Error connecting wallet:", error)
-        addNotification("Failed to connect wallet. Please try again.", "error")
+        alert("Failed to connect wallet. Please try again.")
       }
     } else {
-      addNotification("MetaMask is not installed. Please install MetaMask to use this feature.", "error")
-    }
-  }
-
-  // Check token allowance
-  const checkAllowance = async (tokenObj, sourceChainObj, spenderAddress) => {
-    try {
-      const tokenAddress = tokenObj.addresses[sourceChainObj.chainId.toString()]
-
-      // Call allowance function on token contract
-      const data = {
-        to: tokenAddress,
-        data: `0xdd62ed3e000000000000000000000000${address.substring(2)}000000000000000000000000${spenderAddress.substring(2)}`,
-      }
-
-      const allowanceHex = await window.ethereum.request({
-        method: "eth_call",
-        params: [data, "latest"],
-      })
-
-      // Convert hex to decimal
-      const allowance = Number.parseInt(allowanceHex, 16)
-      const amountValue = Number.parseFloat(amount) * 10 ** tokenObj.decimals
-
-      return allowance >= amountValue
-    } catch (error) {
-      console.error("Error checking allowance:", error)
-      return false
-    }
-  }
-
-  // Approve token spending
-  const approveToken = async (tokenObj, sourceChainObj, spenderAddress) => {
-    try {
-      const tokenAddress = tokenObj.addresses[sourceChainObj.chainId.toString()]
-      const amountToApprove = `0x${"f".repeat(64)}` // Max uint256
-
-      // Encode approve function call
-      const data = `0x095ea7b3000000000000000000000000${spenderAddress.substring(2)}${amountToApprove.substring(2)}`
-
-      // Send transaction
-      const txHash = await window.ethereum.request({
-        method: "eth_sendTransaction",
-        params: [
-          {
-            from: address,
-            to: tokenAddress,
-            data: data,
-          },
-        ],
-      })
-
-      addNotification("Approval transaction submitted", "info")
-
-      // Wait for transaction to be mined
-      let receipt = null
-      while (!receipt) {
-        try {
-          receipt = await window.ethereum.request({
-            method: "eth_getTransactionReceipt",
-            params: [txHash],
-          })
-
-          if (!receipt) {
-            await new Promise((resolve) => setTimeout(resolve, 3000))
-          }
-        } catch (error) {
-          console.error("Error getting receipt:", error)
-          await new Promise((resolve) => setTimeout(resolve, 3000))
-        }
-      }
-
-      if (receipt.status === "0x1") {
-        addNotification("Token approval successful", "success")
-        return true
-      } else {
-        addNotification("Token approval failed", "error")
-        return false
-      }
-    } catch (error) {
-      console.error("Error approving token:", error)
-      addNotification(`Approval failed: ${error.message}`, "error")
-      return false
-    }
-  }
-
-  // Execute bridge transaction
-  const executeBridgeTransaction = async (sourceChainObj, destChainObj, tokenObj) => {
-    try {
-      // Get fee collector address for the current chain
-      const feeCollectorAddress = feeCollectorAddresses[sourceChainObj.chainId.toString()]
-      const tokenAddress = tokenObj.addresses[sourceChainObj.chainId.toString()]
-      const parsedAmount = parseAmount(amount, tokenObj.decimals)
-
-      const txParams = {
-        from: address,
-        to: feeCollectorAddress,
-      }
-
-      // Encode function call based on protocol and token type
-      if (tokenObj.isNative) {
-        // For native token (ETH)
-        const totalValue = 0.0003 * 10 ** 18 + Number.parseFloat(amount) * 10 ** 18
-        txParams.value = "0x" + Math.floor(totalValue).toString(16)
-
-        if (protocol === "hyperlane") {
-          // Use bridgeNativeViaHyperlane
-          // Function selector for bridgeNativeViaHyperlane: 0x3b3a5522
-          const destChainIdHex = destChainObj.chainId.toString(16).padStart(64, "0")
-
-          // Encode the recipient address (needs to be padded to 32 bytes)
-          const recipientHex = "000000000000000000000000" + address.substring(2).toLowerCase()
-
-          // Combine all parts
-          txParams.data = `0x3b3a5522${destChainIdHex}${recipientHex}`
-        } else {
-          // Use bridgeNativeViaLayerZero
-          // Function selector for bridgeNativeViaLayerZero: 0x9e40b315
-          const lzChainId = layerZeroChainIds[destChainObj.chainId.toString()]
-          const lzChainIdHex = lzChainId.toString(16).padStart(64, "0")
-
-          // For LayerZero, we need to encode the recipient as bytes
-          // First 32 bytes: offset to the bytes data (32)
-          const offsetHex = "0000000000000000000000000000000000000000000000000000000000000020"
-
-          // Next 32 bytes: length of the bytes data (20 for address)
-          const lengthHex = "0000000000000000000000000000000000000000000000000000000000000014"
-
-          // Next 32 bytes: the address itself, padded to 32 bytes
-          const recipientHex = "000000000000000000000000" + address.substring(2).toLowerCase()
-
-          // Empty adapter params
-          // First 32 bytes: offset to the bytes data (96 = 32*3)
-          const paramsOffsetHex = "0000000000000000000000000000000000000000000000000000000000000060"
-
-          // Next 32 bytes: length of the bytes data (0)
-          const paramsLengthHex = "0000000000000000000000000000000000000000000000000000000000000000"
-
-          // Combine all parts
-          txParams.data = `0x9e40b315${lzChainIdHex}${offsetHex}${lengthHex}${recipientHex}${paramsOffsetHex}${paramsLengthHex}`
-        }
-      } else {
-        // For ERC20 tokens - not implemented in this simplified version
-        addNotification("ERC20 token bridging is not yet implemented", "error")
-        throw new Error("ERC20 token bridging is not yet implemented")
-      }
-
-      // Send transaction
-      const hash = await window.ethereum.request({
-        method: "eth_sendTransaction",
-        params: [txParams],
-      })
-
-      setTxHash(hash)
-      setTxStatus("pending")
-
-      // Get explorer URL for the source chain
-      const explorerUrl = sourceChainObj.explorer + hash
-
-      addNotification(`Bridge transaction submitted! View on explorer: ${explorerUrl.substring(0, 30)}...`, "success")
-
-      return hash
-    } catch (error) {
-      console.error("Error executing bridge transaction:", error)
-      addNotification(`Bridge failed: ${error.message}`, "error")
-      throw error
+      alert("MetaMask is not installed. Please install MetaMask to use this feature.")
     }
   }
 
@@ -576,13 +207,13 @@ export default function BridgeInterface() {
     }
 
     if (!sourceChain || !destChain || !token || !amount) {
-      addNotification("Please fill in all fields", "error")
+      alert("Please fill in all fields")
       return
     }
 
     // Validate amount
     if (isNaN(Number.parseFloat(amount)) || Number.parseFloat(amount) <= 0) {
-      addNotification("Please enter a valid amount", "error")
+      alert("Please enter a valid amount")
       return
     }
 
@@ -600,79 +231,21 @@ export default function BridgeInterface() {
         throw new Error("Invalid selection")
       }
 
-      // Switch network if needed
-      if (chainId !== sourceChainObj.chainId) {
-        try {
-          addNotification(`Switching to ${sourceChainObj.name} network...`, "info")
+      // Simulate a delay
+      await new Promise((resolve) => setTimeout(resolve, 2000))
 
-          // Check if the chain is already added to MetaMask
-          try {
-            await window.ethereum.request({
-              method: "wallet_switchEthereumChain",
-              params: [{ chainId: `0x${sourceChainObj.chainId.toString(16)}` }],
-            })
-          } catch (switchError) {
-            // Chain not added, add it
-            if (switchError.code === 4902) {
-              await window.ethereum.request({
-                method: "wallet_addEthereumChain",
-                params: [
-                  {
-                    chainId: `0x${sourceChainObj.chainId.toString(16)}`,
-                    chainName: sourceChainObj.name,
-                    nativeCurrency: {
-                      name: "Ether",
-                      symbol: "ETH",
-                      decimals: 18,
-                    },
-                    rpcUrls: [sourceChainObj.rpcUrl],
-                    blockExplorerUrls: [sourceChainObj.explorer.replace("/tx/", "")],
-                  },
-                ],
-              })
-            } else {
-              throw switchError
-            }
-          }
+      // Generate a mock transaction hash
+      const mockTxHash = `0x${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("")}`
+      setTxHash(mockTxHash)
+      setTxStatus("success")
 
-          // Update chainId after switching
-          const chainIdHex = await window.ethereum.request({ method: "eth_chainId" })
-          setChainId(Number.parseInt(chainIdHex, 16))
-        } catch (error) {
-          console.error("Failed to switch network:", error)
-          addNotification("Failed to switch network. Please try again.", "error")
-          setIsLoading(false)
-          return
-        }
-      }
-
-      // For non-native tokens, check allowance and approve if needed
-      if (!tokenObj.isNative) {
-        // We need to approve the fee collector contract
-        const feeCollectorAddress = feeCollectorAddresses[sourceChainObj.chainId.toString()]
-
-        addNotification("Checking token allowance...", "info")
-        const hasAllowance = await checkAllowance(tokenObj, sourceChainObj, feeCollectorAddress)
-
-        if (!hasAllowance) {
-          addNotification("Token approval required", "info")
-          const approved = await approveToken(tokenObj, sourceChainObj, feeCollectorAddress)
-
-          if (!approved) {
-            setIsLoading(false)
-            return
-          }
-        }
-      }
-
-      // Execute bridge transaction
-      await executeBridgeTransaction(sourceChainObj, destChainObj, tokenObj)
+      alert(`Bridge transaction submitted! Tx: ${mockTxHash.slice(0, 10)}...${mockTxHash.slice(-8)}`)
 
       // Reset amount
       setAmount("")
     } catch (error) {
       console.error("Bridge error:", error)
-      addNotification(`Bridge failed: ${error.message}`, "error")
+      alert(`Bridge failed: ${error.message}`)
     } finally {
       setIsLoading(false)
     }
@@ -773,7 +346,6 @@ export default function BridgeInterface() {
             <span className="text-gray-400">Estimated Time:</span>
             <span>{estimatedTime}</span>
           </div>
-          <div className="text-gray-400 text-xs italic mt-1">{platformFeeInfo}</div>
         </div>
 
         {txHash && (

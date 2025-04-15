@@ -9,14 +9,21 @@ export default function Notification({ message, type = "info", duration = 5000, 
     const timer = setTimeout(() => {
       setIsVisible(false)
       setTimeout(() => {
-        onClose && onClose()
+        if (onClose) onClose()
       }, 300) // Allow time for exit animation
     }, duration)
 
     return () => clearTimeout(timer)
   }, [duration, onClose])
 
-  const bgColor = type === "success" ? "bg-green-600" : type === "error" ? "bg-red-600" : "bg-blue-600"
+  const bgColor =
+    type === "success"
+      ? "bg-green-600"
+      : type === "error"
+        ? "bg-red-600"
+        : type === "warning"
+          ? "bg-yellow-600"
+          : "bg-blue-600"
 
   return (
     <div

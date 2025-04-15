@@ -22,7 +22,10 @@ export function ToastContainer() {
                   : "bg-blue-600"
           }`}
         >
-          <p className="text-white">{toast.message}</p>
+          <div>
+            {toast.title && <h4 className="font-medium text-white">{toast.title}</h4>}
+            <p className="text-white">{toast.message}</p>
+          </div>
           <button onClick={() => removeToast(toast.id)} className="text-white ml-4 hover:opacity-70">
             ✕
           </button>
