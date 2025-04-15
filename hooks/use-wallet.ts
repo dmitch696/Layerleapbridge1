@@ -5,16 +5,22 @@ import { useState, useEffect, useCallback } from "react"
 export function useWallet() {
   const [address, setAddress] = useState<string | null>(null)
   const [isConnected, setIsConnected] = useState<boolean>(false)
-  const [chainId, setChainId] = useState<number | null>(null)
+  const [chainId, setChainId] = useState<number | null>(1) // Default to Ethereum mainnet
+  const [mounted, setMounted] = useState(false)
+
+  // Only run client-side code after mounting
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Check if MetaMask is available
-  const isMetaMaskAvailable = typeof window !== "undefined" && window.ethereum !== undefined
+  const isMetaMaskAvailable = mounted && typeof window !== "undefined" && window.ethereum !== undefined
 
   // Connect to MetaMask
   const connect = useCallback(
     async (connector?: string) => {
       if (!isMetaMaskAvailable) {
-        alert("MetaMask is not installed. Please install MetaMask to use this feature.")
+        console.log("MetaMask is not installed")
         return
       }
 
@@ -41,7 +47,7 @@ export function useWallet() {
   const disconnect = useCallback(() => {
     setAddress(null)
     setIsConnected(false)
-    setChainId(null)
+    setChainId(1) // Reset to default
   }, [])
 
   // Switch network
@@ -72,39 +78,43 @@ export function useWallet() {
   useEffect(() => {
     if (!isMetaMaskAvailable) return
 
-    const handleAccountsChanged = (accounts: string[]) => {
-      if (accounts.length === 0) {
-        // User disconnected their wallet
-        disconnect()
-      } else if (accounts[0] !== address) {
-        setAddress(accounts[0])
-        setIsConnected(true)
+    try {
+      const handleAccountsChanged = (accounts: string[]) => {
+        if (accounts.length === 0) {
+          // User disconnected their wallet
+          disconnect()
+        } else if (accounts[0] !== address) {
+          setAddress(accounts[0])
+          setIsConnected(true)
+        }
       }
-    }
 
-    const handleChainChanged = (chainIdHex: string) => {
-      setChainId(Number.parseInt(chainIdHex, 16))
-    }
-
-    window.ethereum.on("accountsChanged", handleAccountsChanged)
-    window.ethereum.on("chainChanged", handleChainChanged)
-
-    // Check if already connected
-    window.ethereum.request({ method: "eth_accounts" }).then((accounts: string[]) => {
-      if (accounts.length > 0) {
-        setAddress(accounts[0])
-        setIsConnected(true)
-
-        // Get current chain ID
-        window.ethereum.request({ method: "eth_chainId" }).then((chainIdHex: string) => {
-          setChainId(Number.parseInt(chainIdHex, 16))
-        })
+      const handleChainChanged = (chainIdHex: string) => {
+        setChainId(Number.parseInt(chainIdHex, 16))
       }
-    })
 
-    return () => {
-      window.ethereum.removeListener("accountsChanged", handleAccountsChanged)
-      window.ethereum.removeListener("chainChanged", handleChainChanged)
+      window.ethereum.on("accountsChanged", handleAccountsChanged)
+      window.ethereum.on("chainChanged", handleChainChanged)
+
+      // Check if already connected
+      window.ethereum.request({ method: "eth_accounts" }).then((accounts: string[]) => {
+        if (accounts.length > 0) {
+          setAddress(accounts[0])
+          setIsConnected(true)
+
+          // Get current chain ID
+          window.ethereum.request({ method: "eth_chainId" }).then((chainIdHex: string) => {
+            setChainId(Number.parseInt(chainIdHex, 16))
+          })
+        }
+      })
+
+      return () => {
+        window.ethereum.removeListener("accountsChanged", handleAccountsChanged)
+        window.ethereum.removeListener("chainChanged", handleChainChanged)
+      }
+    } catch (error) {
+      console.error("Error setting up wallet listeners:", error)
     }
   }, [address, disconnect, isMetaMaskAvailable])
 

@@ -1,7 +1,13 @@
-import HyperlaneBridge from "@/components/hyperlane-bridge"
+import dynamic from 'next/dynamic'
 import ProtocolInfo from "@/components/protocol-info"
 import Header from "@/components/header"
 import Footer from "@/components/footer"
+
+// Dynamically import the HyperlaneBridge component with no SSR
+const HyperlaneBridge = dynamic(
+  () => import('@/components/hyperlane-bridge'),
+  { ssr: false }
+)
 
 export default function BridgePage() {
   return (

@@ -1,4 +1,5 @@
 "use client"
+import { useState, useEffect } from "react"
 import { useWallet } from "@/hooks/use-wallet"
 import {
   Dialog,
@@ -15,6 +16,17 @@ import { Button } from "@/components/ui/button"
 // Create the component
 function WalletConnectComponent() {
   const { address, isConnected, connect, disconnect } = useWallet()
+  const [mounted, setMounted] = useState(false)
+
+  // Only run client-side code after mounting
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Don't render wallet functionality until mounted (client-side)
+  if (!mounted) {
+    return <Button variant="outline">Connect Wallet</Button>
+  }
 
   return (
     <>
