@@ -7,8 +7,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useToast } from "@/hooks/use-toast"
 
 // Chain data
 const chains = [
@@ -29,8 +27,7 @@ const tokens = [
 ]
 
 export default function HyperlaneBridge() {
-  const { addToast } = useToast()
-  const [protocol, setProtocol] = useState<"hyperlane" | "layerzero">("hyperlane")
+  const [protocol, setProtocol] = useState("hyperlane")
   const [sourceChain, setSourceChain] = useState("")
   const [destChain, setDestChain] = useState("")
   const [token, setToken] = useState("")
@@ -47,7 +44,7 @@ export default function HyperlaneBridge() {
     e.preventDefault()
 
     if (!sourceChain || !destChain || !token || !amount) {
-      addToast("Please fill in all fields", "error")
+      alert("Please fill in all fields")
       return
     }
 
@@ -57,13 +54,13 @@ export default function HyperlaneBridge() {
       // Simulate a delay
       await new Promise((resolve) => setTimeout(resolve, 1500))
 
-      addToast(`Bridging ${amount} ${token.toUpperCase()} from ${sourceChain} to ${destChain}`, "success")
+      alert(`Bridging ${amount} ${token.toUpperCase()} from ${sourceChain} to ${destChain}`)
 
       // Reset form
       setAmount("")
     } catch (error) {
       console.error("Bridge error:", error)
-      addToast("An error occurred while bridging your assets", "error")
+      alert("An error occurred while bridging your assets")
     } finally {
       setIsLoading(false)
     }
@@ -97,65 +94,59 @@ export default function HyperlaneBridge() {
 
           <div className="space-y-2">
             <Label htmlFor="sourceChain">Source Chain</Label>
-            <Select value={sourceChain} onValueChange={setSourceChain}>
-              <SelectTrigger id="sourceChain">
-                <SelectValue placeholder="Select source chain" />
-              </SelectTrigger>
-              <SelectContent>
-                {chains.map((chain) => (
-                  <SelectItem key={chain.id} value={chain.id}>
-                    <div className="flex items-center">
-                      <span className="mr-2">{chain.logo}</span>
-                      <span>{chain.name}</span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <select
+              id="sourceChain"
+              className="w-full p-2 bg-gray-700 rounded"
+              value={sourceChain}
+              onChange={(e) => setSourceChain(e.target.value)}
+            >
+              <option value="">Select source chain</option>
+              {chains.map((chain) => (
+                <option key={chain.id} value={chain.id}>
+                  {chain.logo} {chain.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="flex items-center justify-center">
-            <Button type="button" variant="ghost" size="icon" onClick={handleSwapChains}>
+            <Button type="button" variant="ghost" size="sm" onClick={handleSwapChains}>
               ⇄
             </Button>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="destChain">Destination Chain</Label>
-            <Select value={destChain} onValueChange={setDestChain}>
-              <SelectTrigger id="destChain">
-                <SelectValue placeholder="Select destination chain" />
-              </SelectTrigger>
-              <SelectContent>
-                {chains.map((chain) => (
-                  <SelectItem key={chain.id} value={chain.id}>
-                    <div className="flex items-center">
-                      <span className="mr-2">{chain.logo}</span>
-                      <span>{chain.name}</span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <select
+              id="destChain"
+              className="w-full p-2 bg-gray-700 rounded"
+              value={destChain}
+              onChange={(e) => setDestChain(e.target.value)}
+            >
+              <option value="">Select destination chain</option>
+              {chains.map((chain) => (
+                <option key={chain.id} value={chain.id}>
+                  {chain.logo} {chain.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="token">Token</Label>
-            <Select value={token} onValueChange={setToken}>
-              <SelectTrigger id="token">
-                <SelectValue placeholder="Select token" />
-              </SelectTrigger>
-              <SelectContent>
-                {tokens.map((token) => (
-                  <SelectItem key={token.id} value={token.id}>
-                    <div className="flex items-center">
-                      <span className="mr-2">{token.logo}</span>
-                      <span>{token.name}</span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <select
+              id="token"
+              className="w-full p-2 bg-gray-700 rounded"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+            >
+              <option value="">Select token</option>
+              {tokens.map((token) => (
+                <option key={token.id} value={token.id}>
+                  {token.logo} {token.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="space-y-2">
