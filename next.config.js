@@ -10,6 +10,11 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // Explicitly configure to use SWC
+  swcMinify: true,
+  experimental: {
+    forceSwcTransforms: true,
+  },
 }
 
 module.exports = nextConfig
