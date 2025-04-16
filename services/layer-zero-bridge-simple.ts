@@ -108,12 +108,16 @@ export async function bridgeViaLayerZero(
     console.log(`Estimated fee: ${web3.utils.fromWei(feeWei, "ether")} ETH`)
 
     // Calculate total amount (amount to bridge + fee)
-    const totalValue = web3.utils.toBN(amountWei).add(web3.utils.toBN(feeWei))
+    // Fix: Use string addition instead of BN for simplicity
+    const totalValue = (BigInt(amountWei) + BigInt(feeWei)).toString()
+    console.log("Amount Wei:", amountWei)
+    console.log("Fee Wei:", feeWei)
+    console.log("Total Value:", totalValue)
 
     // Execute bridge transaction
     const tx = await bridge.methods.bridgeNative(destinationChainId, recipientAddress).send({
       from: account,
-      value: totalValue.toString(),
+      value: totalValue,
     })
 
     console.log(`Transaction submitted: ${tx.transactionHash}`)
