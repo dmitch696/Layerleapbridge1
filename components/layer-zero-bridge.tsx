@@ -20,9 +20,17 @@ export default function LayerZeroBridge() {
   const [error, setError] = useState<string | null>(null)
   const [isConnected, setIsConnected] = useState(false)
   const [currentChainId, setCurrentChainId] = useState<number | null>(null)
+  const [isBrowser, setIsBrowser] = useState(false)
+
+  // Set isBrowser to true when component mounts
+  useEffect(() => {
+    setIsBrowser(true)
+  }, [])
 
   // Check if wallet is connected and on the right network
   useEffect(() => {
+    if (!isBrowser) return
+
     async function checkConnection() {
       if (window.ethereum) {
         try {
@@ -69,10 +77,12 @@ export default function LayerZeroBridge() {
         window.ethereum.removeAllListeners("chainChanged")
       }
     }
-  }, [])
+  }, [isBrowser])
 
   // Update fee when inputs change
   useEffect(() => {
+    if (!isBrowser) return
+
     async function updateFee() {
       if (destinationChain && amount && Number.parseFloat(amount) > 0 && recipientAddress) {
         try {
@@ -92,10 +102,10 @@ export default function LayerZeroBridge() {
     }
 
     updateFee()
-  }, [destinationChain, amount, recipientAddress])
+  }, [destinationChain, amount, recipientAddress, isBrowser])
 
   const connectWallet = async () => {
-    if (!window.ethereum) {
+    if (!isBrowser || !window.ethereum) {
       toast({
         title: "MetaMask Not Found",
         description: "Please install MetaMask to use this feature.",
@@ -129,7 +139,7 @@ export default function LayerZeroBridge() {
   }
 
   const switchToOptimism = async () => {
-    if (!window.ethereum) return
+    if (!isBrowser || !window.ethereum) return
 
     try {
       await window.ethereum.request({

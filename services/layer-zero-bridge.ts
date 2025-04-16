@@ -1,8 +1,5 @@
-import { ethers } from "ethers"
-import layerZeroBridgeABI from "../lib/layerZeroBridgeABI.json"
-
-// Your deployed contract address on Optimism
-const BRIDGE_ADDRESS = "0x29fc5F35D9c50c6DDB3eE4D8cF7d40D7055e4336"
+// Import ethers dynamically to avoid SSR issues
+let ethers: any
 
 // Chain IDs for reference
 export const CHAIN_IDS = {
@@ -23,12 +20,49 @@ export const CHAINS = [
   { id: 43114, name: "Avalanche", logo: "❄️" },
 ]
 
+// Your deployed contract address on Optimism
+const BRIDGE_ADDRESS = "0x29fc5F35D9c50c6DDB3eE4D8cF7d40D7055e4336"
+
+// ABI for the contract (minimal version for what we need)
+const BRIDGE_ABI = [
+  {
+    inputs: [
+      { internalType: "uint256", name: "destinationChainId", type: "uint256" },
+      { internalType: "address", name: "recipient", type: "address" },
+    ],
+    name: "bridgeNative",
+    outputs: [],
+    stateMutability: "payable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "uint256", name: "destinationChainId", type: "uint256" },
+      { internalType: "address", name: "", type: "address" },
+      { internalType: "uint256", name: "amount", type: "uint256" },
+    ],
+    name: "estimateFee",
+    outputs: [{ internalType: "uint256", name: "fee", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+]
+
+// Helper function to ensure ethers is loaded
+async function getEthers() {
+  if (!ethers) {
+    // Only import ethers on the client side
+    if (typeof window !== "undefined") {
+      ethers = await import("ethers")
+    } else {
+      throw new Error("Ethers can only be loaded in browser environment")
+    }
+  }
+  return ethers
+}
+
 /**
  * Bridge ETH via LayerZero
- * @param {number} destinationChainId - The destination chain ID (e.g., 1 for Ethereum)
- * @param {string} recipientAddress - The recipient address on the destination chain
- * @param {string} amount - The amount to bridge in ETH (e.g., "0.01")
- * @returns {Promise<{success: boolean, txHash?: string, error?: string}>}
  */
 export async function bridgeViaLayerZero(
   destinationChainId: number,
@@ -36,16 +70,19 @@ export async function bridgeViaLayerZero(
   amount: string,
 ): Promise<{ success: boolean; txHash?: string; error?: string }> {
   try {
-    // Check if MetaMask is installed
-    if (!window.ethereum) {
+    // Check if we're in a browser environment
+    if (typeof window === "undefined" || !window.ethereum) {
       throw new Error("MetaMask is not installed. Please install MetaMask to use this feature.")
     }
+
+    // Load ethers
+    const ethersLib = await getEthers()
 
     // Request account access if needed
     await window.ethereum.request({ method: "eth_requestAccounts" })
 
     // Create provider and signer
-    const provider = new ethers.providers.Web3Provider(window.ethereum)
+    const provider = new ethersLib.providers.Web3Provider(window.ethereum)
     const signer = provider.getSigner()
 
     // Check if user is on Optimism
@@ -55,15 +92,15 @@ export async function bridgeViaLayerZero(
     }
 
     // Create contract instance
-    const bridge = new ethers.Contract(BRIDGE_ADDRESS, layerZeroBridgeABI, signer)
+    const bridge = new ethersLib.Contract(BRIDGE_ADDRESS, BRIDGE_ABI, signer)
 
     // Convert amount to wei
-    const amountWei = ethers.utils.parseEther(amount)
+    const amountWei = ethersLib.utils.parseEther(amount)
 
     // Get fee estimate
     const feeWei = await bridge.estimateFee(destinationChainId, recipientAddress, amountWei)
 
-    console.log(`Estimated fee: ${ethers.utils.formatEther(feeWei)} ETH`)
+    console.log(`Estimated fee: ${ethersLib.utils.formatEther(feeWei)} ETH`)
 
     // Calculate total amount (amount to bridge + fee)
     const totalValue = amountWei.add(feeWei)
@@ -93,10 +130,6 @@ export async function bridgeViaLayerZero(
 
 /**
  * Get fee estimate for bridging
- * @param {number} destinationChainId - The destination chain ID
- * @param {string} recipientAddress - The recipient address
- * @param {string} amount - The amount to bridge in ETH
- * @returns {Promise<{success: boolean, fee?: string, error?: string}>}
  */
 export async function getLayerZeroBridgeFee(
   destinationChainId: number,
@@ -104,19 +137,22 @@ export async function getLayerZeroBridgeFee(
   amount: string,
 ): Promise<{ success: boolean; fee?: string; error?: string }> {
   try {
-    if (!window.ethereum) {
+    if (typeof window === "undefined" || !window.ethereum) {
       throw new Error("MetaMask is not installed")
     }
 
-    const provider = new ethers.providers.Web3Provider(window.ethereum)
-    const bridge = new ethers.Contract(BRIDGE_ADDRESS, layerZeroBridgeABI, provider)
+    // Load ethers
+    const ethersLib = await getEthers()
 
-    const amountWei = ethers.utils.parseEther(amount)
+    const provider = new ethersLib.providers.Web3Provider(window.ethereum)
+    const bridge = new ethersLib.Contract(BRIDGE_ADDRESS, BRIDGE_ABI, provider)
+
+    const amountWei = ethersLib.utils.parseEther(amount)
     const feeWei = await bridge.estimateFee(destinationChainId, recipientAddress, amountWei)
 
     return {
       success: true,
-      fee: ethers.utils.formatEther(feeWei),
+      fee: ethersLib.utils.formatEther(feeWei),
     }
   } catch (error: any) {
     console.error("Fee estimation error:", error)
