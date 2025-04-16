@@ -65,7 +65,8 @@
     "@hyperlane-xyz/sdk": "latest",
     "ethers": "latest",
     "fs": "latest",
-    "child_process": "latest"
+    "child_process": "latest",
+    "web3": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

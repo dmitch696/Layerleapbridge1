@@ -1,4 +1,4 @@
-import LayerZeroBridge from "@/components/layer-zero-bridge"
+import LayerZeroBridgeSimple from "@/components/layer-zero-bridge-simple"
 import Header from "@/components/header"
 import Footer from "@/components/footer"
 
@@ -13,7 +13,7 @@ export default function LayerZeroBridgePage() {
           <p className="text-gray-400 mb-8">Bridge your assets across chains using LayerZero protocol</p>
 
           <div className="w-full max-w-md mb-12">
-            <LayerZeroBridge />
+            <LayerZeroBridgeSimple />
           </div>
 
           <div className="max-w-2xl mx-auto mt-8 p-6 bg-gray-800 rounded-lg">
