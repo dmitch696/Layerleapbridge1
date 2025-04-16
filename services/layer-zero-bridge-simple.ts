@@ -168,54 +168,32 @@ export async function bridgeViaLayerZero(
 
     // Get fee estimate
     const feeWei = await bridge.methods.estimateFee(destinationChainId, formattedRecipientAddress, amountWei).call()
-
     console.log(`Estimated fee: ${web3.utils.fromWei(feeWei, "ether")} ETH`)
 
-    // Add a buffer to the fee to account for potential gas price fluctuations (10% extra)
-    // Using web3.utils.toBN instead of s.utils.toBN
-    const feeBN = web3.utils.toBN(feeWei)
-    const feeWithBuffer = feeBN.muln(110).divn(100)
-    const feeWithBufferStr = feeWithBuffer.toString()
-    console.log(`Fee with 10% buffer: ${web3.utils.fromWei(feeWithBufferStr, "ether")} ETH`)
+    // Add a simple 10% to the fee as buffer - using string math instead of BN
+    const feeNum = Number(web3.utils.fromWei(feeWei, "ether"))
+    const feeWithBuffer = feeNum * 1.1
+    console.log(`Fee with 10% buffer: ${feeWithBuffer} ETH`)
+
+    // Convert fee with buffer back to wei
+    const feeWithBufferWei = web3.utils.toWei(feeWithBuffer.toString(), "ether")
 
     // Calculate total amount (amount to bridge + fee)
-    const amountBN = web3.utils.toBN(amountWei)
-    const totalValue = amountBN.add(feeWithBuffer).toString()
-    console.log("Amount Wei:", amountWei)
-    console.log("Fee Wei with buffer:", feeWithBufferStr)
-    console.log("Total Value:", totalValue)
-    console.log("Total Value in ETH:", web3.utils.fromWei(totalValue, "ether"))
+    const amountNum = Number(amount)
+    const totalValueETH = amountNum + feeWithBuffer
+    const totalValueWei = web3.utils.toWei(totalValueETH.toString(), "ether")
 
-    // Estimate gas for the transaction
-    try {
-      const gasEstimate = await bridge.methods.bridgeNative(destinationChainId, formattedRecipientAddress).estimateGas({
-        from: account,
-        value: totalValue,
-      })
-      console.log("Estimated gas:", gasEstimate)
-    } catch (gasError) {
-      console.error("Gas estimation failed:", gasError)
-      // Continue anyway, but log the error
-    }
+    console.log("Total ETH:", totalValueETH)
+    console.log("Total Wei:", totalValueWei)
 
     // Execute bridge transaction with higher gas limit to ensure it goes through
     const tx = await bridge.methods.bridgeNative(destinationChainId, formattedRecipientAddress).send({
       from: account,
-      value: totalValue,
+      value: totalValueWei,
       gas: 300000, // Set a higher gas limit
     })
 
     console.log(`Transaction submitted: ${tx.transactionHash}`)
-    console.log(
-      "Transaction details:",
-      JSON.stringify({
-        hash: tx.transactionHash,
-        blockNumber: tx.blockNumber,
-        from: tx.from,
-        to: tx.to,
-        status: tx.status,
-      }),
-    )
 
     return {
       success: true,
@@ -223,17 +201,9 @@ export async function bridgeViaLayerZero(
     }
   } catch (error: any) {
     console.error("Bridge error:", error)
-
-    // Extract more detailed error information if available
-    let errorMessage = error.message
-
-    if (error.receipt) {
-      errorMessage += ` - Transaction reverted. Receipt: ${JSON.stringify(error.receipt)}`
-    }
-
     return {
       success: false,
-      error: errorMessage,
+      error: error.message,
     }
   }
 }
@@ -266,14 +236,13 @@ export async function getLayerZeroBridgeFee(
     // Get fee estimate
     const feeWei = await bridge.methods.estimateFee(destinationChainId, formattedRecipientAddress, amountWei).call()
 
-    // Add a 10% buffer to the fee
-    const feeBN = web3.utils.toBN(feeWei)
-    const feeWithBuffer = feeBN.muln(110).divn(100)
-    const feeInEth = web3.utils.fromWei(feeWithBuffer.toString(), "ether")
+    // Add a 10% buffer to the fee - using simple math instead of BN
+    const feeETH = Number(web3.utils.fromWei(feeWei, "ether"))
+    const feeWithBuffer = (feeETH * 1.1).toFixed(6)
 
     return {
       success: true,
-      fee: feeInEth,
+      fee: feeWithBuffer,
     }
   } catch (error: any) {
     console.error("Fee estimation error:", error)

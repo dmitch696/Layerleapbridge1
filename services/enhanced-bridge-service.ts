@@ -162,9 +162,9 @@ export async function getBridgeFee(
     // Get fee estimate
     const feeWei = await bridge.methods.estimateFee(destinationChainId, formattedRecipientAddress, amountWei).call()
 
-    // Add a 10% buffer to the fee
-    const feeBN = web3.utils.toBN(feeWei)
-    const feeWithBuffer = feeBN.muln(110).divn(100)
+    // Add a 10% buffer to the fee - using BN.js directly instead of toBN
+    const BN = web3.utils.BN
+    const feeWithBuffer = new BN(feeWei).muln(110).divn(100)
     const feeInEth = web3.utils.fromWei(feeWithBuffer.toString(), "ether")
 
     return {
@@ -200,6 +200,9 @@ export async function bridgeETH(
     // We'll use the window.ethereum provider directly with Web3
     const Web3 = (await import("web3")).default
     const web3 = new Web3(window.ethereum)
+
+    // Get BN directly from web3.utils
+    const BN = web3.utils.BN
 
     // Check if user is on Optimism
     let chainId
@@ -253,13 +256,13 @@ export async function bridgeETH(
     console.log(`Estimated fee: ${web3.utils.fromWei(feeWei, "ether")} ETH`)
 
     // Add a buffer to the fee to account for potential gas price fluctuations (10% extra)
-    const feeBN = web3.utils.toBN(feeWei)
+    const feeBN = new BN(feeWei)
     const feeWithBuffer = feeBN.muln(110).divn(100)
     const feeWithBufferStr = feeWithBuffer.toString()
     console.log(`Fee with 10% buffer: ${web3.utils.fromWei(feeWithBufferStr, "ether")} ETH`)
 
     // Calculate total amount (amount to bridge + fee)
-    const amountBN = web3.utils.toBN(amountWei)
+    const amountBN = new BN(amountWei)
     const totalValue = amountBN.add(feeWithBuffer).toString()
     console.log("Amount Wei:", amountWei)
     console.log("Fee Wei with buffer:", feeWithBufferStr)
