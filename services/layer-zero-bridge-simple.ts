@@ -67,9 +67,29 @@ export async function bridgeViaLayerZero(
     const web3 = new Web3(window.ethereum)
 
     // Check if user is on Optimism
-    const chainId = await web3.eth.getChainId()
-    if (chainId !== 10) {
-      throw new Error("Please connect to Optimism network in MetaMask to use this bridge.")
+    let chainId
+    try {
+      // Try multiple methods to get the chain ID
+      chainId = await web3.eth.getChainId()
+      console.log("Chain ID from web3:", chainId)
+
+      // Also check directly from provider as backup
+      const chainIdHex = await window.ethereum.request({ method: "eth_chainId" })
+      const providerChainId = Number.parseInt(chainIdHex, 16)
+      console.log("Chain ID from provider:", providerChainId)
+
+      // Use the provider chain ID if web3 chain ID doesn't match Optimism
+      if (chainId !== 10 && providerChainId === 10) {
+        console.log("Using provider chain ID instead")
+        chainId = providerChainId
+      }
+
+      if (chainId !== 10) {
+        throw new Error("Please connect to Optimism network in MetaMask to use this bridge.")
+      }
+    } catch (error) {
+      console.error("Error checking chain ID:", error)
+      throw new Error("Failed to verify network. Please ensure you're connected to Optimism.")
     }
 
     // Get current account

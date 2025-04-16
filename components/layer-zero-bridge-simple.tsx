@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
 import { bridgeViaLayerZero, getLayerZeroBridgeFee, CHAINS } from "@/services/layer-zero-bridge-simple"
+// Add import for network utilities at the top of the file
+import { isConnectedToOptimism, switchToOptimism } from "@/utils/network-utils"
 
 export default function LayerZeroBridgeSimple() {
   const { toast } = useToast()
@@ -46,6 +48,7 @@ export default function LayerZeroBridgeSimple() {
             // Get current chain
             const chainIdHex = await window.ethereum.request({ method: "eth_chainId" })
             const chainId = Number.parseInt(chainIdHex, 16)
+            console.log("Current chain ID detected:", chainId, "Chain ID Hex:", chainIdHex)
             setCurrentChainId(chainId)
           }
         } catch (error) {
@@ -138,41 +141,6 @@ export default function LayerZeroBridgeSimple() {
     }
   }
 
-  const switchToOptimism = async () => {
-    if (!isBrowser || !window.ethereum) return
-
-    try {
-      await window.ethereum.request({
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: "0xA" }], // 10 in hex
-      })
-    } catch (switchError: any) {
-      // This error code indicates that the chain has not been added to MetaMask
-      if (switchError.code === 4902) {
-        try {
-          await window.ethereum.request({
-            method: "wallet_addEthereumChain",
-            params: [
-              {
-                chainId: "0xA",
-                chainName: "Optimism",
-                nativeCurrency: {
-                  name: "Ethereum",
-                  symbol: "ETH",
-                  decimals: 18,
-                },
-                rpcUrls: ["https://mainnet.optimism.io"],
-                blockExplorerUrls: ["https://optimistic.etherscan.io"],
-              },
-            ],
-          })
-        } catch (addError) {
-          console.error("Error adding Optimism network:", addError)
-        }
-      }
-    }
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -187,16 +155,30 @@ export default function LayerZeroBridgeSimple() {
         return
       }
 
-      // Check if on Optimism
-      if (currentChainId !== 10) {
+      // Check if on Optimism using our utility function
+      const onOptimism = await isConnectedToOptimism()
+      console.log("On Optimism network:", onOptimism)
+
+      if (!onOptimism) {
         toast({
           title: "Wrong Network",
           description: "Please switch to Optimism network to use this bridge.",
           variant: "destructive",
         })
-        await switchToOptimism()
-        setIsLoading(false)
-        return
+
+        const switched = await switchToOptimism()
+        if (!switched) {
+          toast({
+            title: "Network Switch Failed",
+            description: "Could not switch to Optimism network. Please try manually switching in your wallet.",
+            variant: "destructive",
+          })
+          setIsLoading(false)
+          return
+        }
+
+        // Update the current chain ID state
+        setCurrentChainId(10)
       }
 
       // Validate inputs
