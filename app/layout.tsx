@@ -2,6 +2,7 @@ import type React from "react"
 import "./globals.css"
 import { Inter } from "next/font/google"
 import { ToastProvider } from "@/components/ui/toast-provider"
+import ClientProviders from "@/components/client-providers"
 
 // Use the font but with fallback
 const inter = Inter({
@@ -24,7 +25,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <ToastProvider>{children}</ToastProvider>
+        <ClientProviders>
+          <ToastProvider>{children}</ToastProvider>
+        </ClientProviders>
       </body>
     </html>
   )

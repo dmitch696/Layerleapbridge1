@@ -1,9 +1,10 @@
 "use client"
-import { useState, useEffect } from "react"
+
+import { useEffect, useState } from "react"
 import { useWallet } from "@/hooks/use-wallet"
+import { Button } from "@/components/ui/button"
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -11,21 +12,23 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
 
-// Create the component
-function WalletConnectComponent() {
-  const { address, isConnected, connect, disconnect } = useWallet()
+export default function WalletConnectComponent() {
+  const { address, isConnected, connect, disconnect, isMetaMaskAvailable } = useWallet()
+  const [isOpen, setIsOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
 
-  // Only run client-side code after mounting
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  // Don't render wallet functionality until mounted (client-side)
   if (!mounted) {
     return <Button variant="outline">Connect Wallet</Button>
+  }
+
+  const handleConnect = async () => {
+    await connect()
+    setIsOpen(false)
   }
 
   return (
@@ -40,7 +43,7 @@ function WalletConnectComponent() {
           </Button>
         </div>
       ) : (
-        <Dialog>
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
             <Button variant="outline">Connect Wallet</Button>
           </DialogTrigger>
@@ -50,16 +53,16 @@ function WalletConnectComponent() {
               <DialogDescription>Choose a wallet provider to connect to LayerLeap.</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-              <Button onClick={() => connect("metamask")}>MetaMask</Button>
-              <Button onClick={() => connect("coinbase")}>Coinbase Wallet</Button>
-              <Button onClick={() => connect("walletconnect")}>WalletConnect</Button>
+              <Button onClick={handleConnect} disabled={!isMetaMaskAvailable}>
+                {isMetaMaskAvailable ? "MetaMask" : "MetaMask (Not Installed)"}
+              </Button>
+              <Button disabled>Coinbase Wallet (Coming Soon)</Button>
+              <Button disabled>WalletConnect (Coming Soon)</Button>
             </div>
             <DialogFooter>
-              <DialogClose asChild>
-                <Button type="button" variant="secondary">
-                  Cancel
-                </Button>
-              </DialogClose>
+              <Button type="button" variant="secondary" onClick={() => setIsOpen(false)}>
+                Cancel
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -67,7 +70,3 @@ function WalletConnectComponent() {
     </>
   )
 }
-
-// Export as both default and named export
-export default WalletConnectComponent
-export { WalletConnectComponent as WalletConnect }
