@@ -238,6 +238,17 @@ export default function LayerZeroBridge() {
     <Card className="bg-gray-800 border-gray-700">
       <CardContent className="pt-6">
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="p-3 bg-blue-900/30 rounded mb-4">
+            <div className="flex items-center gap-2">
+              <span className="text-red-400 font-medium">Source:</span>
+              <span className="flex items-center gap-1">
+                <span>🔴</span>
+                <span>Optimism</span>
+              </span>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">This bridge allows transfers from Optimism to other chains</p>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="destinationChain">Destination Chain</Label>
             <select
@@ -261,12 +272,12 @@ export default function LayerZeroBridge() {
             <Input
               id="amount"
               type="number"
-              step="0.001"
-              min="0.001"
+              step="0.0001"
+              min="0.0001"
               className="bg-gray-700 border-gray-600"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              placeholder="0.01"
+              placeholder="0.0001"
               required
             />
           </div>
