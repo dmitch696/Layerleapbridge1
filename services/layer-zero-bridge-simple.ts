@@ -172,8 +172,9 @@ export async function bridgeViaLayerZero(
     console.log(`Estimated fee: ${web3.utils.fromWei(feeWei, "ether")} ETH`)
 
     // Add a buffer to the fee to account for potential gas price fluctuations (10% extra)
+    // Using web3.utils.toBN instead of s.utils.toBN
     const feeBN = web3.utils.toBN(feeWei)
-    const feeWithBuffer = feeBN.mul(web3.utils.toBN(110)).div(web3.utils.toBN(100))
+    const feeWithBuffer = feeBN.muln(110).divn(100)
     const feeWithBufferStr = feeWithBuffer.toString()
     console.log(`Fee with 10% buffer: ${web3.utils.fromWei(feeWithBufferStr, "ether")} ETH`)
 
@@ -267,7 +268,7 @@ export async function getLayerZeroBridgeFee(
 
     // Add a 10% buffer to the fee
     const feeBN = web3.utils.toBN(feeWei)
-    const feeWithBuffer = feeBN.mul(web3.utils.toBN(110)).div(web3.utils.toBN(100))
+    const feeWithBuffer = feeBN.muln(110).divn(100)
     const feeInEth = web3.utils.fromWei(feeWithBuffer.toString(), "ether")
 
     return {

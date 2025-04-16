@@ -47,8 +47,9 @@ export default function LayerZeroBridgeSimple() {
           setIsConnected(isConnected)
 
           if (isConnected) {
-            // Get current address
-            setRecipientAddress(accounts[0])
+            // Get current address and use it as recipient
+            const currentAddress = accounts[0]
+            setRecipientAddress(currentAddress)
 
             // Get current chain
             const chainIdHex = await window.ethereum.request({ method: "eth_chainId" })
@@ -69,6 +70,7 @@ export default function LayerZeroBridgeSimple() {
       window.ethereum.on("accountsChanged", (accounts: string[]) => {
         setIsConnected(accounts.length > 0)
         if (accounts.length > 0) {
+          // Always use the current wallet address as recipient
           setRecipientAddress(accounts[0])
         }
       })
@@ -145,6 +147,7 @@ export default function LayerZeroBridgeSimple() {
       const accounts = await window.ethereum.request({ method: "eth_accounts" })
       setIsConnected(accounts.length > 0)
       if (accounts.length > 0) {
+        // Always use the current wallet address as recipient
         setRecipientAddress(accounts[0])
       }
 
@@ -205,11 +208,23 @@ export default function LayerZeroBridgeSimple() {
       }
 
       // Validate inputs
-      if (!destinationChain || !amount || !recipientAddress) {
+      if (!destinationChain || !amount) {
         setError("Please fill in all fields")
         setIsLoading(false)
         return
       }
+
+      // Get current account to use as recipient
+      const accounts = await window.ethereum.request({ method: "eth_accounts" })
+      if (accounts.length === 0) {
+        setError("No wallet connected")
+        setIsLoading(false)
+        return
+      }
+
+      // Always use the current wallet address
+      const currentAddress = accounts[0]
+      setRecipientAddress(currentAddress)
 
       const amountNum = Number.parseFloat(amount)
       if (isNaN(amountNum) || amountNum <= 0) {
@@ -229,7 +244,7 @@ export default function LayerZeroBridgeSimple() {
       }
 
       // Execute bridge
-      const result = await bridgeViaLayerZero(Number.parseInt(destinationChain), recipientAddress, amount)
+      const result = await bridgeViaLayerZero(Number.parseInt(destinationChain), currentAddress, amount)
 
       if (result.success && result.txHash) {
         setTxHash(result.txHash)
@@ -308,18 +323,14 @@ export default function LayerZeroBridgeSimple() {
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="recipient">Recipient Address</Label>
-            <Input
-              id="recipient"
-              type="text"
-              className="bg-gray-700 border-gray-600"
-              value={recipientAddress}
-              onChange={(e) => setRecipientAddress(e.target.value)}
-              placeholder="0x..."
-              required
-            />
-            <p className="text-xs text-gray-400">Address that will receive the funds on the destination chain</p>
+          <div className="p-3 bg-green-900/30 rounded">
+            <div className="flex items-center gap-2">
+              <span className="text-green-400 font-medium">Recipient:</span>
+              <span className="text-sm break-all">{recipientAddress || "Connect wallet to set recipient"}</span>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">
+              Your connected wallet address will automatically be used as the recipient
+            </p>
           </div>
 
           {fee && (
