@@ -1,13 +1,7 @@
-import dynamic from 'next/dynamic'
-import ProtocolInfo from "@/components/protocol-info"
 import Header from "@/components/header"
 import Footer from "@/components/footer"
-
-// Dynamically import the HyperlaneBridge component with no SSR
-const HyperlaneBridge = dynamic(
-  () => import('@/components/hyperlane-bridge'),
-  { ssr: false }
-)
+import BridgeClientWrapper from "@/components/bridge-client-wrapper"
+import ProtocolInfo from "@/components/protocol-info"
 
 export default function BridgePage() {
   return (
@@ -19,7 +13,7 @@ export default function BridgePage() {
           <h1 className="text-3xl font-bold mb-8">Bridge Your Assets</h1>
 
           <div className="w-full max-w-md mb-12">
-            <HyperlaneBridge />
+            <BridgeClientWrapper />
           </div>
 
           <ProtocolInfo />

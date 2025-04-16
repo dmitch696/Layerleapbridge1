@@ -1,13 +1,13 @@
 import type React from "react"
 import "./globals.css"
-import { Inter } from 'next/font/google'
+import { Inter } from "next/font/google"
 import { ToastProvider } from "@/components/ui/toast-provider"
 
 // Use the font but with fallback
-const inter = Inter({ 
+const inter = Inter({
   subsets: ["latin"],
-  display: 'swap',
-  fallback: ['system-ui', 'arial', 'sans-serif']
+  display: "swap",
+  fallback: ["system-ui", "arial", "sans-serif"],
 })
 
 export const metadata = {
@@ -24,7 +24,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        {children}
+        <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
   )

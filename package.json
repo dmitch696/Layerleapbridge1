@@ -61,14 +61,11 @@
     "ts-node": "latest",
     "@ethersproject/abi": "latest",
     "@ethersproject/providers": "latest",
-    "viem": "latest",
-    "@tanstack/react-query": "latest",
     "hardhat": "latest",
     "@hyperlane-xyz/sdk": "latest",
     "ethers": "latest",
     "fs": "latest",
-    "child_process": "latest",
-    "wagmi": "latest"
+    "child_process": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

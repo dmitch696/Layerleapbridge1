@@ -1,12 +1,5 @@
 import Link from "next/link"
-import dynamic from 'next/dynamic'
-import { Button } from "@/components/ui/button"
-
-// Dynamically import the wallet component with no SSR
-const WalletConnectComponent = dynamic(
-  () => import('@/components/wallet-connect'),
-  { ssr: false }
-)
+import WalletButtonWrapper from "./wallet-button-wrapper"
 
 export default function Header() {
   return (
@@ -30,9 +23,7 @@ export default function Header() {
           </Link>
         </nav>
 
-        <Button variant="outline" size="sm">
-          Connect Wallet
-        </Button>
+        <WalletButtonWrapper />
       </div>
     </header>
   )
