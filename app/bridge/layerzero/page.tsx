@@ -1,4 +1,5 @@
-import LayerZeroBridgeSimple from "@/components/layer-zero-bridge-simple"
+import ImprovedBridge from "@/components/improved-bridge"
+import ContractInfo from "@/components/contract-info"
 import Header from "@/components/header"
 import Footer from "@/components/footer"
 
@@ -12,8 +13,12 @@ export default function LayerZeroBridgePage() {
           <h1 className="text-3xl font-bold mb-2">LayerZero Bridge</h1>
           <p className="text-gray-400 mb-8">Bridge your assets across chains using LayerZero protocol</p>
 
+          <div className="w-full max-w-md mb-6">
+            <ImprovedBridge />
+          </div>
+
           <div className="w-full max-w-md mb-12">
-            <LayerZeroBridgeSimple />
+            <ContractInfo />
           </div>
 
           <div className="max-w-2xl mx-auto mt-8 p-6 bg-gray-800 rounded-lg">

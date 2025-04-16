@@ -21,7 +21,7 @@ export const CHAINS = [
 ]
 
 // Your deployed contract address on Optimism
-const BRIDGE_ADDRESS = "0x29fc5F35D9c50c6DDB3eE4D8cF7d40D7055e4336"
+const BRIDGE_ADDRESS = "0xB84361304A2DBe4707FF7D6E06cE32E0cd05D902"
 
 // ABI for the contract (minimal version for what we need)
 const BRIDGE_ABI = [
