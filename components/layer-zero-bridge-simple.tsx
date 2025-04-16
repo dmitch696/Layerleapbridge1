@@ -7,8 +7,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
-import { bridgeViaLayerZero, getLayerZeroBridgeFee, CHAINS } from "@/services/layer-zero-bridge-simple"
-// Add import for network utilities at the top of the file
+import {
+  bridgeViaLayerZero,
+  getLayerZeroBridgeFee,
+  isChainSupported,
+  CHAINS,
+} from "@/services/layer-zero-bridge-simple"
 import { isConnectedToOptimism, switchToOptimism } from "@/utils/network-utils"
 
 export default function LayerZeroBridgeSimple() {
@@ -23,6 +27,7 @@ export default function LayerZeroBridgeSimple() {
   const [isConnected, setIsConnected] = useState(false)
   const [currentChainId, setCurrentChainId] = useState<number | null>(null)
   const [isBrowser, setIsBrowser] = useState(false)
+  const [supportedChains, setSupportedChains] = useState<Record<number, boolean>>({})
 
   // Set isBrowser to true when component mounts
   useEffect(() => {
@@ -81,6 +86,24 @@ export default function LayerZeroBridgeSimple() {
       }
     }
   }, [isBrowser])
+
+  // Check which chains are supported
+  useEffect(() => {
+    if (!isBrowser || !isConnected) return
+
+    async function checkSupportedChains() {
+      const supported: Record<number, boolean> = {}
+
+      for (const chain of CHAINS) {
+        supported[chain.id] = await isChainSupported(chain.id)
+      }
+
+      console.log("Supported chains:", supported)
+      setSupportedChains(supported)
+    }
+
+    checkSupportedChains()
+  }, [isBrowser, isConnected])
 
   // Update fee when inputs change
   useEffect(() => {
@@ -195,6 +218,16 @@ export default function LayerZeroBridgeSimple() {
         return
       }
 
+      // Check if destination chain is supported
+      const destChainId = Number.parseInt(destinationChain)
+      if (!supportedChains[destChainId]) {
+        setError(
+          `Destination chain ${CHAINS.find((c) => c.id === destChainId)?.name || destChainId} is not supported by the bridge contract.`,
+        )
+        setIsLoading(false)
+        return
+      }
+
       // Execute bridge
       const result = await bridgeViaLayerZero(Number.parseInt(destinationChain), recipientAddress, amount)
 
@@ -252,8 +285,9 @@ export default function LayerZeroBridgeSimple() {
             >
               <option value="">Select destination chain</option>
               {CHAINS.map((chain) => (
-                <option key={chain.id} value={chain.id}>
-                  {chain.logo} {chain.name}
+                <option key={chain.id} value={chain.id} disabled={isConnected && supportedChains[chain.id] === false}>
+                  {chain.logo} {chain.name}{" "}
+                  {isConnected && supportedChains[chain.id] === false ? "(Not Supported)" : ""}
                 </option>
               ))}
             </select>
@@ -327,7 +361,7 @@ export default function LayerZeroBridgeSimple() {
         {error && (
           <div className="mt-4 p-3 bg-red-800/50 rounded">
             <p className="font-medium">Error</p>
-            <p className="text-sm">{error}</p>
+            <p className="text-sm break-all">{error}</p>
           </div>
         )}
       </CardContent>

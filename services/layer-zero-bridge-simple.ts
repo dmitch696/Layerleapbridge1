@@ -43,7 +43,42 @@ const BRIDGE_ABI = [
     stateMutability: "view",
     type: "function",
   },
+  // Add a function to check if the chain is supported
+  {
+    inputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    name: "chainToLzId",
+    outputs: [{ internalType: "uint16", name: "", type: "uint16" }],
+    stateMutability: "view",
+    type: "function",
+  },
 ]
+
+/**
+ * Check if the destination chain is supported
+ */
+export async function isChainSupported(destinationChainId: number): Promise<boolean> {
+  try {
+    if (typeof window === "undefined" || !window.ethereum) {
+      return false
+    }
+
+    const Web3 = (await import("web3")).default
+    const web3 = new Web3(window.ethereum)
+
+    // Create contract instance
+    const bridge = new web3.eth.Contract(BRIDGE_ABI as any, BRIDGE_ADDRESS)
+
+    // Check if the chain is supported by checking if it has a mapping
+    const lzId = await bridge.methods.chainToLzId(destinationChainId).call()
+    console.log(`Chain ${destinationChainId} has LayerZero ID: ${lzId}`)
+
+    // If lzId is 0, the chain is not supported
+    return lzId !== "0"
+  } catch (error) {
+    console.error("Error checking chain support:", error)
+    return false
+  }
+}
 
 /**
  * Bridge ETH via LayerZero
@@ -92,6 +127,12 @@ export async function bridgeViaLayerZero(
       throw new Error("Failed to verify network. Please ensure you're connected to Optimism.")
     }
 
+    // Check if the destination chain is supported
+    const isSupported = await isChainSupported(destinationChainId)
+    if (!isSupported) {
+      throw new Error(`Destination chain ${destinationChainId} is not supported by the bridge contract.`)
+    }
+
     // Get current account
     const accounts = await web3.eth.getAccounts()
     const account = accounts[0]
@@ -107,20 +148,38 @@ export async function bridgeViaLayerZero(
 
     console.log(`Estimated fee: ${web3.utils.fromWei(feeWei, "ether")} ETH`)
 
-    // Calculate total amount (amount to bridge + fee)
-    // Fix: Use string addition instead of BN for simplicity
-    const totalValue = (BigInt(amountWei) + BigInt(feeWei)).toString()
-    console.log("Amount Wei:", amountWei)
-    console.log("Fee Wei:", feeWei)
-    console.log("Total Value:", totalValue)
+    // Add a buffer to the fee to account for potential gas price fluctuations (10% extra)
+    const feeWithBuffer = ((BigInt(feeWei) * BigInt(110)) / BigInt(100)).toString()
+    console.log(`Fee with 10% buffer: ${web3.utils.fromWei(feeWithBuffer, "ether")} ETH`)
 
-    // Execute bridge transaction
+    // Calculate total amount (amount to bridge + fee)
+    const totalValue = (BigInt(amountWei) + BigInt(feeWithBuffer)).toString()
+    console.log("Amount Wei:", amountWei)
+    console.log("Fee Wei with buffer:", feeWithBuffer)
+    console.log("Total Value:", totalValue)
+    console.log("Total Value in ETH:", web3.utils.fromWei(totalValue, "ether"))
+
+    // Estimate gas for the transaction
+    try {
+      const gasEstimate = await bridge.methods.bridgeNative(destinationChainId, recipientAddress).estimateGas({
+        from: account,
+        value: totalValue,
+      })
+      console.log("Estimated gas:", gasEstimate)
+    } catch (gasError) {
+      console.error("Gas estimation failed:", gasError)
+      // Continue anyway, but log the error
+    }
+
+    // Execute bridge transaction with higher gas limit to ensure it goes through
     const tx = await bridge.methods.bridgeNative(destinationChainId, recipientAddress).send({
       from: account,
       value: totalValue,
+      gas: 300000, // Set a higher gas limit
     })
 
     console.log(`Transaction submitted: ${tx.transactionHash}`)
+    console.log("Transaction details:", tx)
 
     return {
       success: true,
@@ -128,9 +187,17 @@ export async function bridgeViaLayerZero(
     }
   } catch (error: any) {
     console.error("Bridge error:", error)
+
+    // Extract more detailed error information if available
+    let errorMessage = error.message
+
+    if (error.receipt) {
+      errorMessage += ` - Transaction reverted. Receipt: ${JSON.stringify(error.receipt)}`
+    }
+
     return {
       success: false,
-      error: error.message,
+      error: errorMessage,
     }
   }
 }
@@ -160,9 +227,13 @@ export async function getLayerZeroBridgeFee(
     // Get fee estimate
     const feeWei = await bridge.methods.estimateFee(destinationChainId, recipientAddress, amountWei).call()
 
+    // Add a 10% buffer to the fee
+    const feeWithBuffer = ((BigInt(feeWei) * BigInt(110)) / BigInt(100)).toString()
+    const feeInEth = web3.utils.fromWei(feeWithBuffer, "ether")
+
     return {
       success: true,
-      fee: web3.utils.fromWei(feeWei, "ether"),
+      fee: feeInEth,
     }
   } catch (error: any) {
     console.error("Fee estimation error:", error)
