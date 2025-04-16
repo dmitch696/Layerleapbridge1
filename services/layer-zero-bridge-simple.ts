@@ -81,6 +81,25 @@ export async function isChainSupported(destinationChainId: number): Promise<bool
 }
 
 /**
+ * Properly format an Ethereum address for LayerZero
+ * This ensures the address is in the correct format expected by the protocol
+ */
+function formatAddressForLayerZero(address: string): string {
+  // Make sure the address is properly formatted with 0x prefix
+  if (!address.startsWith("0x")) {
+    address = "0x" + address
+  }
+
+  // Ensure the address is the correct length (42 characters including 0x prefix)
+  if (address.length !== 42) {
+    throw new Error(`Invalid Ethereum address: ${address}`)
+  }
+
+  // Return the properly formatted address
+  return address
+}
+
+/**
  * Bridge ETH via LayerZero
  */
 export async function bridgeViaLayerZero(
@@ -140,28 +159,35 @@ export async function bridgeViaLayerZero(
     // Create contract instance
     const bridge = new web3.eth.Contract(BRIDGE_ABI as any, BRIDGE_ADDRESS)
 
+    // Format the recipient address properly for LayerZero
+    const formattedRecipientAddress = formatAddressForLayerZero(recipientAddress)
+    console.log("Formatted recipient address:", formattedRecipientAddress)
+
     // Convert amount to wei
     const amountWei = web3.utils.toWei(amount, "ether")
 
     // Get fee estimate
-    const feeWei = await bridge.methods.estimateFee(destinationChainId, recipientAddress, amountWei).call()
+    const feeWei = await bridge.methods.estimateFee(destinationChainId, formattedRecipientAddress, amountWei).call()
 
     console.log(`Estimated fee: ${web3.utils.fromWei(feeWei, "ether")} ETH`)
 
     // Add a buffer to the fee to account for potential gas price fluctuations (10% extra)
-    const feeWithBuffer = ((BigInt(feeWei) * BigInt(110)) / BigInt(100)).toString()
-    console.log(`Fee with 10% buffer: ${web3.utils.fromWei(feeWithBuffer, "ether")} ETH`)
+    const feeBN = web3.utils.toBN(feeWei)
+    const feeWithBuffer = feeBN.mul(web3.utils.toBN(110)).div(web3.utils.toBN(100))
+    const feeWithBufferStr = feeWithBuffer.toString()
+    console.log(`Fee with 10% buffer: ${web3.utils.fromWei(feeWithBufferStr, "ether")} ETH`)
 
     // Calculate total amount (amount to bridge + fee)
-    const totalValue = (BigInt(amountWei) + BigInt(feeWithBuffer)).toString()
+    const amountBN = web3.utils.toBN(amountWei)
+    const totalValue = amountBN.add(feeWithBuffer).toString()
     console.log("Amount Wei:", amountWei)
-    console.log("Fee Wei with buffer:", feeWithBuffer)
+    console.log("Fee Wei with buffer:", feeWithBufferStr)
     console.log("Total Value:", totalValue)
     console.log("Total Value in ETH:", web3.utils.fromWei(totalValue, "ether"))
 
     // Estimate gas for the transaction
     try {
-      const gasEstimate = await bridge.methods.bridgeNative(destinationChainId, recipientAddress).estimateGas({
+      const gasEstimate = await bridge.methods.bridgeNative(destinationChainId, formattedRecipientAddress).estimateGas({
         from: account,
         value: totalValue,
       })
@@ -172,14 +198,23 @@ export async function bridgeViaLayerZero(
     }
 
     // Execute bridge transaction with higher gas limit to ensure it goes through
-    const tx = await bridge.methods.bridgeNative(destinationChainId, recipientAddress).send({
+    const tx = await bridge.methods.bridgeNative(destinationChainId, formattedRecipientAddress).send({
       from: account,
       value: totalValue,
       gas: 300000, // Set a higher gas limit
     })
 
     console.log(`Transaction submitted: ${tx.transactionHash}`)
-    console.log("Transaction details:", tx)
+    console.log(
+      "Transaction details:",
+      JSON.stringify({
+        hash: tx.transactionHash,
+        blockNumber: tx.blockNumber,
+        from: tx.from,
+        to: tx.to,
+        status: tx.status,
+      }),
+    )
 
     return {
       success: true,
@@ -221,15 +256,19 @@ export async function getLayerZeroBridgeFee(
     // Create contract instance
     const bridge = new web3.eth.Contract(BRIDGE_ABI as any, BRIDGE_ADDRESS)
 
+    // Format the recipient address properly for LayerZero
+    const formattedRecipientAddress = formatAddressForLayerZero(recipientAddress)
+
     // Convert amount to wei
     const amountWei = web3.utils.toWei(amount, "ether")
 
     // Get fee estimate
-    const feeWei = await bridge.methods.estimateFee(destinationChainId, recipientAddress, amountWei).call()
+    const feeWei = await bridge.methods.estimateFee(destinationChainId, formattedRecipientAddress, amountWei).call()
 
     // Add a 10% buffer to the fee
-    const feeWithBuffer = ((BigInt(feeWei) * BigInt(110)) / BigInt(100)).toString()
-    const feeInEth = web3.utils.fromWei(feeWithBuffer, "ether")
+    const feeBN = web3.utils.toBN(feeWei)
+    const feeWithBuffer = feeBN.mul(web3.utils.toBN(110)).div(web3.utils.toBN(100))
+    const feeInEth = web3.utils.fromWei(feeWithBuffer.toString(), "ether")
 
     return {
       success: true,
