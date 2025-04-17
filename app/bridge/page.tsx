@@ -1,6 +1,6 @@
 import Header from "@/components/header"
 import Footer from "@/components/footer"
-import BridgeForm from "@/components/bridge-form"
+import LayerZeroDirectBridge from "@/components/layerzero-direct-bridge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default function BridgePage() {
@@ -14,7 +14,7 @@ export default function BridgePage() {
           <p className="text-gray-400 mb-8">Transfer your assets from Optimism to other chains</p>
 
           <div className="w-full max-w-md mb-8">
-            <BridgeForm />
+            <LayerZeroDirectBridge />
           </div>
 
           <div className="w-full max-w-md">
@@ -41,18 +41,18 @@ export default function BridgePage() {
                 <div className="flex items-start space-x-3">
                   <div className="bg-blue-600 p-2 rounded-full">3</div>
                   <div>
-                    <h3 className="font-medium">Enter Amount</h3>
+                    <h3 className="font-medium">Initiate Bridge</h3>
                     <p className="text-sm text-gray-400">
-                      Specify how much ETH you want to bridge to the destination chain.
+                      Click the bridge button to send a test amount (0.0001 ETH) to your destination chain.
                     </p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
                   <div className="bg-blue-600 p-2 rounded-full">4</div>
                   <div>
-                    <h3 className="font-medium">Confirm Transaction</h3>
+                    <h3 className="font-medium">Wait for Confirmation</h3>
                     <p className="text-sm text-gray-400">
-                      Approve the transaction in your wallet and wait for it to complete.
+                      The bridge process typically takes 10-30 minutes to complete.
                     </p>
                   </div>
                 </div>

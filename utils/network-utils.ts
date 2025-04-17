@@ -19,9 +19,10 @@ export async function isConnectedToOptimism(): Promise<boolean> {
     // Method 1: Direct provider request
     const chainIdHex = await window.ethereum.request({ method: "eth_chainId" })
     const chainId = Number.parseInt(chainIdHex, 16)
-    console.log("Chain ID from direct provider request:", chainId)
+    console.log("Chain ID from direct provider request:", chainId, "Hex:", chainIdHex)
 
     if (chainId === OPTIMISM_CHAIN_ID) {
+      console.log("✅ Connected to Optimism (chainId: 10)")
       return true
     }
 
@@ -34,6 +35,7 @@ export async function isConnectedToOptimism(): Promise<boolean> {
         console.log("Chain ID from Web3:", web3ChainId)
 
         if (web3ChainId === OPTIMISM_CHAIN_ID) {
+          console.log("✅ Connected to Optimism (Web3 chainId: 10)")
           return true
         }
       } catch (web3Error) {
@@ -43,13 +45,19 @@ export async function isConnectedToOptimism(): Promise<boolean> {
     }
 
     // Method 3: Check network version (older method)
-    const networkVersion = await window.ethereum.request({ method: "net_version" })
-    console.log("Network version:", networkVersion)
+    try {
+      const networkVersion = await window.ethereum.request({ method: "net_version" })
+      console.log("Network version:", networkVersion)
 
-    if (networkVersion === OPTIMISM_CHAIN_ID.toString()) {
-      return true
+      if (networkVersion === OPTIMISM_CHAIN_ID.toString()) {
+        console.log("✅ Connected to Optimism (networkVersion: 10)")
+        return true
+      }
+    } catch (versionError) {
+      console.error("Error getting network version:", versionError)
     }
 
+    console.log("❌ Not connected to Optimism - detected chain ID:", chainId)
     return false
   } catch (error) {
     console.error("Error checking Optimism connection:", error)
@@ -89,7 +97,7 @@ export async function switchToOptimism(): Promise<boolean> {
                 symbol: "ETH",
                 decimals: 18,
               },
-              rpcUrls: ["https://mainnet.optimism.io"],
+              rpcUrls: ["https://mainnet.optimism.io", "https://optimism-mainnet.public.blastapi.io"],
               blockExplorerUrls: ["https://optimistic.etherscan.io"],
             },
           ],
