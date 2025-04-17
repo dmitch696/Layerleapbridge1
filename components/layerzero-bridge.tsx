@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2 } from "lucide-react"
 import { isConnectedToOptimism, switchToOptimism } from "@/utils/network-utils"
+import StargateRedirectButton from "./stargate-redirect-button"
 
 // Chain data for UI
 const CHAINS = [
@@ -66,6 +67,8 @@ export default function LayerZeroBridge() {
   const [isConnected, setIsConnected] = useState(false)
   const [isOnOptimism, setIsOnOptimism] = useState(false)
   const [web3, setWeb3] = useState<any>(null)
+  const [showStargateOption, setShowStargateOption] = useState(false)
+  const [debugInfo, setDebugInfo] = useState<any>(null)
 
   // Initialize Web3 when component mounts
   useEffect(() => {
@@ -213,6 +216,8 @@ export default function LayerZeroBridge() {
     setIsLoading(true)
     setError(null)
     setTxHash(null)
+    setDebugInfo(null)
+    setShowStargateOption(false)
 
     try {
       // Check if web3 is initialized
@@ -282,7 +287,6 @@ export default function LayerZeroBridge() {
       const lzEndpoint = new web3.eth.Contract(LZ_ENDPOINT_ABI, LZ_ENDPOINT_ADDRESS)
 
       // Properly encode the recipient address for LayerZero
-      // This is the key fix for the "incorrect remote address size" error
       const encodedRecipient = encodeAddressForLayerZero(account)
       console.log("Encoded recipient:", encodedRecipient)
 
@@ -295,55 +299,118 @@ export default function LayerZeroBridge() {
       // Zero address for ZRO token payments (we're not using ZRO)
       const zeroAddress = "0x0000000000000000000000000000000000000000"
 
-      // Estimate the fee - fixing the parameter validation errors
-      const [nativeFee, zroFee] = await lzEndpoint.methods
-        .estimateFees(
+      // Try to estimate the fee, but use a fallback if it fails
+      let nativeFee
+      let feeWithBuffer
+      try {
+        console.log("Estimating fees with parameters:", {
           lzDestChainId,
           encodedRecipient,
-          payload,
-          account, // refund address - must be a valid address
-          zeroAddress, // zroPaymentAddress - must be a valid address
-          adapterParams, // adapter params - must be provided
-        )
-        .call()
+          payload: payload.substring(0, 66) + "...", // Truncate for logging
+          refundAddress: account,
+          zroPaymentAddress: zeroAddress,
+          adapterParams: adapterParams.substring(0, 66) + "...", // Truncate for logging
+        })
 
-      console.log("Estimated native fee:", web3.utils.fromWei(nativeFee, "ether"), "ETH")
+        const [estimatedNativeFee, zroFee] = await lzEndpoint.methods
+          .estimateFees(
+            lzDestChainId,
+            encodedRecipient,
+            payload,
+            account, // refund address
+            zeroAddress, // zroPaymentAddress
+            adapterParams, // adapter params
+          )
+          .call()
 
-      // Add a 20% buffer to the fee
-      const feeWithBuffer = web3.utils.toBN(nativeFee).mul(web3.utils.toBN(120)).div(web3.utils.toBN(100))
+        console.log("Estimated native fee:", web3.utils.fromWei(estimatedNativeFee, "ether"), "ETH")
+        nativeFee = estimatedNativeFee
+      } catch (feeError) {
+        console.error("Fee estimation failed:", feeError)
+
+        // Use a fixed fee as fallback (0.001 ETH)
+        nativeFee = web3.utils.toWei("0.001", "ether")
+        console.log("Using fallback fee:", web3.utils.fromWei(nativeFee, "ether"), "ETH")
+
+        // Log detailed error for debugging
+        setDebugInfo({
+          error: "Fee estimation failed",
+          details: feeError.toString(),
+          parameters: {
+            lzDestChainId,
+            encodedRecipient: encodedRecipient.substring(0, 42) + "...",
+            payloadLength: payload.length,
+            refundAddress: account,
+            zroPaymentAddress: zeroAddress,
+            adapterParamsLength: adapterParams.length,
+          },
+        })
+      }
+
+      // Add a 50% buffer to the fee to ensure it's enough
+      feeWithBuffer = web3.utils.toBN(nativeFee).mul(web3.utils.toBN(150)).div(web3.utils.toBN(100))
       console.log("Fee with buffer:", web3.utils.fromWei(feeWithBuffer.toString(), "ether"), "ETH")
 
       // Calculate total value to send (amount + fee)
       const totalValue = web3.utils.toBN(amountWei).add(feeWithBuffer)
       console.log("Total value:", web3.utils.fromWei(totalValue.toString(), "ether"), "ETH")
 
-      // Send the transaction
-      console.log("Sending transaction...")
-      const tx = await lzEndpoint.methods
-        .send(
-          lzDestChainId,
-          encodedRecipient,
-          payload,
-          account, // refund address (same as sender)
-          zeroAddress, // zroPaymentAddress - we're not using ZRO token
-          adapterParams,
-        )
-        .send({
-          from: account,
-          value: totalValue.toString(),
-          gas: 500000, // Fixed high gas limit
+      try {
+        // Send the transaction
+        console.log("Sending transaction...")
+        const tx = await lzEndpoint.methods
+          .send(
+            lzDestChainId,
+            encodedRecipient,
+            payload,
+            account, // refund address (same as sender)
+            zeroAddress, // zroPaymentAddress - we're not using ZRO token
+            adapterParams,
+          )
+          .send({
+            from: account,
+            value: totalValue.toString(),
+            gas: 500000, // Fixed high gas limit
+          })
+
+        console.log("Transaction sent:", tx.transactionHash)
+        setTxHash(tx.transactionHash)
+
+        toast({
+          title: "Bridge Transaction Submitted",
+          description: "Your test amount (0.0001 ETH) is being bridged. This may take 10-30 minutes to complete.",
+        })
+      } catch (txError) {
+        console.error("Transaction failed:", txError)
+
+        // Show detailed error and offer Stargate as alternative
+        setError(`Transaction failed: ${txError.message || "Unknown error"}`)
+        setShowStargateOption(true)
+
+        // Log detailed error for debugging
+        setDebugInfo({
+          error: "Transaction failed",
+          details: txError.toString(),
+          parameters: {
+            lzDestChainId,
+            encodedRecipient: encodedRecipient.substring(0, 42) + "...",
+            payloadLength: payload.length,
+            value: web3.utils.fromWei(totalValue.toString(), "ether"),
+            gas: 500000,
+          },
         })
 
-      console.log("Transaction sent:", tx.transactionHash)
-      setTxHash(tx.transactionHash)
-
-      toast({
-        title: "Bridge Transaction Submitted",
-        description: "Your test amount (0.0001 ETH) is being bridged. This may take 10-30 minutes to complete.",
-      })
+        toast({
+          title: "Bridge Failed",
+          description: "Direct bridge transaction failed. You can try using Stargate instead.",
+          variant: "destructive",
+        })
+      }
     } catch (err: any) {
       console.error("Bridge error:", err)
       setError(err.message || "An unknown error occurred")
+      setShowStargateOption(true)
+
       toast({
         title: "Error",
         description: err.message || "An unknown error occurred",
@@ -438,6 +505,26 @@ export default function LayerZeroBridge() {
           <div className="mt-4 p-3 bg-red-800/50 rounded">
             <p className="font-medium">Error</p>
             <p className="text-sm break-all">{error}</p>
+
+            {debugInfo && (
+              <details className="mt-2 text-xs">
+                <summary className="cursor-pointer text-gray-400">Show Debug Info</summary>
+                <pre className="mt-2 p-2 bg-gray-900 rounded overflow-auto max-h-40">
+                  {JSON.stringify(debugInfo, null, 2)}
+                </pre>
+              </details>
+            )}
+          </div>
+        )}
+
+        {showStargateOption && (
+          <div className="mt-4">
+            <p className="text-sm text-center mb-2">Direct bridge failed. Try using Stargate Finance instead:</p>
+            <StargateRedirectButton
+              destinationChainId={destinationChain ? Number.parseInt(destinationChain) : undefined}
+              amount="0.0001"
+              className="bg-purple-600 hover:bg-purple-700"
+            />
           </div>
         )}
       </CardContent>
