@@ -65,26 +65,14 @@ async function testDirectBridge() {
     const feeAmount = "0.0001" // 0.0001 ETH for fee
     const feeWei = web3.utils.toWei(feeAmount, "ether")
 
-    // Calculate total
-    const totalWei = web3.utils.toBN(testAmountWei).add(web3.utils.toBN(feeWei)).toString()
-    console.log(`Total amount: ${web3.utils.fromWei(totalWei, "ether")} ETH`)
+    // Calculate total - AVOID USING BN OPERATIONS
+    const totalEth = Number(testAmount) + Number(feeAmount)
+    const totalWei = web3.utils.toWei(totalEth.toString(), "ether")
 
-    // Try a test call first (this doesn't send a transaction)
-    try {
-      console.log("Testing call (this doesn't send a transaction)...")
-      await bridge.methods.bridgeNative(destinationChainId, recipient).call({
-        from: account,
-        value: totalWei,
-      })
-      console.log("Test call succeeded! The transaction should work.")
-    } catch (error) {
-      console.error("Test call failed:", error)
-      console.log("The transaction would likely fail with this error.")
-      return
-    }
+    console.log(`Total amount: ${totalEth} ETH (${totalWei} wei)`)
 
     // Ask for confirmation before sending the actual transaction
-    const confirmSend = confirm(`Are you sure you want to send ${testAmount} ETH to the bridge contract?`)
+    const confirmSend = confirm(`Are you sure you want to send ${totalEth} ETH to the bridge contract?`)
     if (!confirmSend) {
       console.log("Transaction cancelled by user.")
       return
@@ -95,7 +83,7 @@ async function testDirectBridge() {
     const tx = await bridge.methods.bridgeNative(destinationChainId, recipient).send({
       from: account,
       value: totalWei,
-      gas: 300000, // Higher gas limit
+      gas: 500000, // Higher gas limit
     })
 
     console.log("Transaction sent successfully!")
