@@ -6,6 +6,10 @@
 export const OPTIMISM_CHAIN_ID = 10
 export const OPTIMISM_CHAIN_ID_HEX = "0xA"
 
+const CHAIN_DATA: { [chainId: number]: { blockExplorer: string } } = {
+  10: { blockExplorer: "https://optimistic.etherscan.io" },
+}
+
 /**
  * Check if the user is connected to Optimism
  * Uses multiple methods to verify for maximum reliability
@@ -26,7 +30,7 @@ export async function isConnectedToOptimism(): Promise<boolean> {
       return true
     }
 
-    // Method 2: Try using Web3 if available
+    // Method 2: Try using Web3.js as fallback if available
     if (typeof window !== "undefined") {
       try {
         const Web3Module = await import("web3")
@@ -46,7 +50,7 @@ export async function isConnectedToOptimism(): Promise<boolean> {
       }
     }
 
-    // Method 3: Check network version (older method)
+    // Method 3: Try network version as a last resort
     try {
       const networkVersion = await window.ethereum.request({ method: "net_version" })
       console.log("Network version:", networkVersion)
@@ -116,4 +120,17 @@ export async function switchToOptimism(): Promise<boolean> {
     console.error("Error switching to Optimism:", switchError)
     return false
   }
+}
+
+/**
+ * Get the explorer URL for a transaction
+ * @param chainId The chain ID
+ * @param txHash The transaction hash
+ * @returns The explorer URL for the transaction
+ */
+export function getExplorerUrl(chainId: number, txHash: string): string {
+  const chainData = CHAIN_DATA[chainId]
+  if (!chainData) return ""
+
+  return `${chainData.blockExplorer}/tx/${txHash}`
 }

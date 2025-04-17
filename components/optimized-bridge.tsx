@@ -1,31 +1,23 @@
-"use client"
+"\"use client"
 
 import type React from "react"
+
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2 } from "lucide-react"
-import {
-  CHAINS,
-  isConnectedToOptimism,
-  switchToOptimism,
-  isChainSupported,
-  getSupportedChains,
-  getBridgeFee,
-  bridgeETH,
-} from "@/services/optimized-bridge-service"
+import { isConnectedToOptimism, switchToOptimism } from "@/utils/network-utils"
+import { CHAINS, bridgeETH, isChainSupported } from "@/services/resilient-bridge-service"
 
 export default function OptimizedBridge() {
   const { toast } = useToast()
   const [destinationChain, setDestinationChain] = useState("")
   const [amount, setAmount] = useState("0.01")
-  const [gasLimit, setGasLimit] = useState("200000")
   const [isLoading, setIsLoading] = useState(false)
   const [isCheckingNetwork, setIsCheckingNetwork] = useState(true)
-  const [isCheckingSupport, setIsCheckingSupport] = useState(false)
   const [txHash, setTxHash] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isConnected, setIsConnected] = useState(false)
@@ -35,51 +27,16 @@ export default function OptimizedBridge() {
   const [balance, setBalance] = useState<string | null>(null)
   const [fee, setFee] = useState<string | null>(null)
   const [supportedChains, setSupportedChains] = useState<Record<number, boolean>>({})
-  const [showAdvanced, setShowAdvanced] = useState(false)
 
-  // Initialize Web3 when component mounts
-  useEffect(() => {
-    async function initWeb3() {
-      if (typeof window !== "undefined" && window.ethereum) {
-        try {
-          const Web3Module = await import("web3")
-          const Web3 = Web3Module.default || Web3Module
-          setWeb3(new Web3(window.ethereum))
-        } catch (error) {
-          console.error("Failed to initialize Web3:", error)
-        }
-      }
-    }
-
-    initWeb3()
-  }, [])
-
-  // Check if wallet is connected and on the right network
   useEffect(() => {
     async function checkConnection() {
       setIsCheckingNetwork(true)
 
       if (window.ethereum) {
         try {
-          // Check if connected
           const accounts = await window.ethereum.request({ method: "eth_accounts" })
-          const connected = accounts.length > 0
-          setIsConnected(connected)
-
-          if (connected) {
-            // Check if on Optimism
-            const onOptimism = await isConnectedToOptimism()
-            setIsOnOptimism(onOptimism)
-
-            // Get account balance
-            if (web3) {
-              const account = accounts[0]
-              setAccount(account)
-              const balanceWei = await web3.eth.getBalance(account)
-              const balanceEth = web3.utils.fromWei(balanceWei, "ether")
-              setBalance(balanceEth)
-            }
-          }
+          setIsConnected(accounts.length > 0)
+          setIsOnOptimism(await isConnectedToOptimism())
         } catch (error) {
           console.error("Error checking wallet connection:", error)
         }
@@ -90,151 +47,28 @@ export default function OptimizedBridge() {
 
     checkConnection()
 
-    // Set up event listeners for account and chain changes
     if (window.ethereum) {
-      const handleAccountsChanged = async (accounts: string[]) => {
-        setIsConnected(accounts.length > 0)
-        if (accounts.length > 0) {
-          const onOptimism = await isConnectedToOptimism()
-          setIsOnOptimism(onOptimism)
-
-          // Update account and balance
-          if (web3) {
-            const account = accounts[0]
-            setAccount(account)
-            const balanceWei = await web3.eth.getBalance(account)
-            const balanceEth = web3.utils.fromWei(balanceWei, "ether")
-            setBalance(balanceEth)
-          }
-        } else {
-          setIsOnOptimism(false)
-          setAccount(null)
-          setBalance(null)
-        }
-      }
-
-      const handleChainChanged = async () => {
-        const onOptimism = await isConnectedToOptimism()
-        setIsOnOptimism(onOptimism)
-
-        // Update balance on chain change
-        if (web3 && account) {
-          const balanceWei = await web3.eth.getBalance(account)
-          const balanceEth = web3.utils.fromWei(balanceWei, "ether")
-          setBalance(balanceEth)
-        }
-      }
-
-      window.ethereum.on("accountsChanged", handleAccountsChanged)
-      window.ethereum.on("chainChanged", handleChainChanged)
-
-      // Cleanup
+      window.ethereum.on("accountsChanged", () => checkConnection())
+      window.ethereum.on("chainChanged", () => checkConnection())
       return () => {
-        window.ethereum.removeListener("accountsChanged", handleAccountsChanged)
-        window.ethereum.removeListener("chainChanged", handleChainChanged)
+        window.ethereum.removeAllListeners("accountsChanged")
+        window.ethereum.removeAllListeners("chainChanged")
       }
     }
-  }, [web3, account])
+  }, [])
 
-  // Check which chains are supported
   useEffect(() => {
-    async function checkSupportedChains() {
-      if (!web3) return
-
+    async function checkSupported() {
       setIsCheckingSupport(true)
       const supported: Record<number, boolean> = {}
-
-      try {
-        console.log("Checking supported chains...")
-
-        // Initialize all chains as potentially supported
-        for (const chain of CHAINS) {
-          supported[chain.id] = true // Default to true until proven otherwise
-        }
-
-        try {
-          // Try to get all supported chains from the contract
-          const supportedChainIds = await getSupportedChains()
-          console.log("Supported chain IDs from contract:", supportedChainIds)
-
-          if (supportedChainIds && supportedChainIds.length > 0) {
-            // Reset all to false first
-            for (const chain of CHAINS) {
-              supported[chain.id] = false
-            }
-
-            // Then mark supported chains
-            for (const chainId of supportedChainIds) {
-              supported[Number(chainId)] = true
-            }
-          } else {
-            console.log("No supported chains returned from contract, falling back to individual checks")
-            // If no chains returned, check each individually
-            for (const chain of CHAINS) {
-              const isSupported = await isChainSupported(chain.id)
-              supported[chain.id] = isSupported
-              console.log(`Chain ${chain.id} (${chain.name}) supported: ${isSupported}`)
-            }
-          }
-        } catch (error) {
-          console.error("Error getting supported chains from contract:", error)
-
-          // Fallback: check each chain individually
-          for (const chain of CHAINS) {
-            try {
-              const isSupported = await isChainSupported(chain.id)
-              supported[chain.id] = isSupported
-              console.log(`Chain ${chain.id} (${chain.name}) supported: ${isSupported}`)
-            } catch (chainError) {
-              console.error(`Error checking support for chain ${chain.id}:`, chainError)
-              // Default to supported for major chains if check fails
-              supported[chain.id] = [1, 42161, 137, 8453, 43114, 56, 10].includes(chain.id)
-            }
-          }
-        }
-
-        console.log("Final supported chains map:", supported)
-        setSupportedChains(supported)
-      } catch (error) {
-        console.error("Error in checkSupportedChains:", error)
-
-        // Fallback: assume major chains are supported
-        for (const chain of CHAINS) {
-          supported[chain.id] = [1, 42161, 137, 8453, 43114, 56, 10].includes(chain.id)
-        }
-        setSupportedChains(supported)
-      } finally {
-        setIsCheckingSupport(false)
+      for (const chain of CHAINS) {
+        supported[chain.id] = await isChainSupported(chain.id)
       }
+      setSupportedChains(supported)
+      setIsCheckingSupport(false)
     }
-
-    if (web3) {
-      checkSupportedChains()
-    }
-  }, [web3])
-
-  // Update fee when inputs change
-  useEffect(() => {
-    async function updateFee() {
-      if (destinationChain && amount && Number.parseFloat(amount) > 0) {
-        try {
-          const result = await getBridgeFee(Number.parseInt(destinationChain), Number.parseInt(gasLimit))
-
-          if (result.success && result.fee) {
-            setFee(result.fee)
-          } else if (result.error) {
-            console.warn("Fee estimation error:", result.error)
-          }
-        } catch (error) {
-          console.error("Error updating fee:", error)
-        }
-      } else {
-        setFee(null)
-      }
-    }
-
-    updateFee()
-  }, [destinationChain, amount, gasLimit])
+    checkSupported()
+  }, [isConnected, isOnOptimism])
 
   const connectWallet = async () => {
     if (!window.ethereum) {
@@ -248,14 +82,8 @@ export default function OptimizedBridge() {
 
     try {
       await window.ethereum.request({ method: "eth_requestAccounts" })
-      const accounts = await window.ethereum.request({ method: "eth_accounts" })
-      setIsConnected(accounts.length > 0)
-
-      if (accounts.length > 0) {
-        const onOptimism = await isConnectedToOptimism()
-        setIsOnOptimism(onOptimism)
-      }
-
+      setIsConnected(true)
+      setIsOnOptimism(await isConnectedToOptimism())
       toast({
         title: "Wallet Connected",
         description: "Your wallet has been connected successfully.",
@@ -269,7 +97,6 @@ export default function OptimizedBridge() {
     }
   }
 
-  // Update the handleSubmit function to handle network switching
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -277,19 +104,12 @@ export default function OptimizedBridge() {
     setTxHash(null)
 
     try {
-      // Check if web3 is initialized
-      if (!web3) {
-        throw new Error("Web3 is not initialized. Please refresh the page and try again.")
-      }
-
-      // Check if connected
       if (!isConnected) {
         await connectWallet()
         setIsLoading(false)
         return
       }
 
-      // Check if on Optimism
       if (!isOnOptimism) {
         toast({
           title: "Wrong Network",
@@ -306,39 +126,21 @@ export default function OptimizedBridge() {
           setIsLoading(false)
           return
         }
-
-        setIsOnOptimism(true)
       }
 
-      // Validate inputs
       if (!destinationChain) {
         setError("Please select a destination chain")
         setIsLoading(false)
         return
       }
 
-      if (!amount || Number.parseFloat(amount) <= 0) {
-        setError("Please enter a valid amount")
-        setIsLoading(false)
-        return
-      }
-
-      // Check if destination chain is supported
-      const destChainId = Number.parseInt(destinationChain)
-      if (supportedChains[destChainId] === false) {
-        setError(`Destination chain ${CHAINS.find((c) => c.id === destChainId)?.name || destChainId} is not supported.`)
-        setIsLoading(false)
-        return
-      }
-
-      // Execute bridge
-      const result = await bridgeETH(destChainId, amount, Number.parseInt(gasLimit))
+      const result = await bridgeETH(Number.parseInt(destinationChain), amount)
 
       if (result.success && result.txHash) {
         setTxHash(result.txHash)
         toast({
           title: "Bridge Transaction Submitted",
-          description: `Your ${amount} ETH is being bridged. This may take 10-30 minutes to complete.`,
+          description: "Your assets are being bridged. This may take 10-30 minutes to complete.",
         })
       } else {
         setError(result.error || "Bridge transaction failed")
@@ -362,10 +164,7 @@ export default function OptimizedBridge() {
 
   return (
     <Card className="bg-gray-800 border-gray-700">
-      <CardHeader>
-        <CardTitle className="text-xl">LayerZero Bridge</CardTitle>
-      </CardHeader>
-      <CardContent>
+      <CardContent className="pt-6">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="p-3 bg-blue-900/30 rounded mb-4">
             <div className="flex items-center gap-2">
@@ -375,9 +174,7 @@ export default function OptimizedBridge() {
                 <span>Optimism</span>
               </span>
             </div>
-            <p className="text-xs text-gray-400 mt-1">
-              Bridge your assets from Optimism to other chains using LayerZero
-            </p>
+            <p className="text-xs text-gray-400 mt-1">This bridge allows transfers from Optimism to other chains</p>
           </div>
 
           <div className="space-y-2">
@@ -416,58 +213,17 @@ export default function OptimizedBridge() {
               className="bg-gray-700 border-gray-600"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              placeholder="0.01"
+              placeholder="0.0001"
               required
             />
-            {balance && <p className="text-xs text-gray-400">Your balance: {Number(balance).toFixed(4)} ETH</p>}
           </div>
 
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="showAdvanced"
-              checked={showAdvanced}
-              onChange={(e) => setShowAdvanced(e.target.checked)}
-              className="rounded bg-gray-700 border-gray-600"
-            />
-            <Label htmlFor="showAdvanced">Show advanced options</Label>
-          </div>
-
-          {showAdvanced && (
-            <div className="space-y-2">
-              <Label htmlFor="gasLimit">Gas Limit</Label>
-              <Input
-                id="gasLimit"
-                type="number"
-                step="1000"
-                min="100000"
-                className="bg-gray-700 border-gray-600"
-                value={gasLimit}
-                onChange={(e) => setGasLimit(e.target.value)}
-                placeholder="200000"
-              />
-              <p className="text-xs text-gray-400">Higher gas limits may be needed for some chains. Default: 200,000</p>
-            </div>
-          )}
-
-          {fee && (
-            <div className="p-3 bg-gray-700 rounded">
-              <p className="text-sm">Estimated Fee: {fee} ETH</p>
-              <p className="text-sm">
-                Total: {(Number.parseFloat(amount || "0") + Number.parseFloat(fee)).toFixed(6)} ETH
-              </p>
-              <p className="text-xs text-gray-400 mt-1">Includes gas fees for the destination chain</p>
-            </div>
-          )}
-
-          <Button type="submit" className="w-full" disabled={isLoading || isCheckingNetwork || !web3}>
+          <Button type="submit" className="w-full" disabled={isLoading || isCheckingNetwork}>
             {isLoading ? (
               <span className="flex items-center">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Processing...
               </span>
-            ) : !web3 ? (
-              "Initializing Web3..."
             ) : !isConnected ? (
               "Connect Wallet"
             ) : !isOnOptimism ? (
@@ -490,18 +246,6 @@ export default function OptimizedBridge() {
             >
               View on Optimism Explorer
             </a>
-            <p className="text-xs text-gray-400 mt-2">
-              Check the transaction on{" "}
-              <a
-                href={`https://layerzeroscan.com/tx/${txHash}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-400 hover:underline"
-              >
-                LayerZero Scan
-              </a>{" "}
-              to track cross-chain message delivery
-            </p>
           </div>
         )}
 
@@ -515,3 +259,4 @@ export default function OptimizedBridge() {
     </Card>
   )
 }
+\"\
