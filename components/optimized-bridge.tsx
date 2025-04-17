@@ -139,42 +139,79 @@ export default function OptimizedBridge() {
   // Check which chains are supported
   useEffect(() => {
     async function checkSupportedChains() {
-      if (!isConnected || !isOnOptimism) return
+      if (!web3) return
 
       setIsCheckingSupport(true)
       const supported: Record<number, boolean> = {}
 
       try {
-        // Get all supported chains from the contract
-        const supportedChainIds = await getSupportedChains()
+        console.log("Checking supported chains...")
 
-        // Initialize all chains as not supported
+        // Initialize all chains as potentially supported
         for (const chain of CHAINS) {
-          supported[chain.id] = false
+          supported[chain.id] = true // Default to true until proven otherwise
         }
 
-        // Mark supported chains
-        for (const chainId of supportedChainIds) {
-          supported[Number(chainId)] = true
+        try {
+          // Try to get all supported chains from the contract
+          const supportedChainIds = await getSupportedChains()
+          console.log("Supported chain IDs from contract:", supportedChainIds)
+
+          if (supportedChainIds && supportedChainIds.length > 0) {
+            // Reset all to false first
+            for (const chain of CHAINS) {
+              supported[chain.id] = false
+            }
+
+            // Then mark supported chains
+            for (const chainId of supportedChainIds) {
+              supported[Number(chainId)] = true
+            }
+          } else {
+            console.log("No supported chains returned from contract, falling back to individual checks")
+            // If no chains returned, check each individually
+            for (const chain of CHAINS) {
+              const isSupported = await isChainSupported(chain.id)
+              supported[chain.id] = isSupported
+              console.log(`Chain ${chain.id} (${chain.name}) supported: ${isSupported}`)
+            }
+          }
+        } catch (error) {
+          console.error("Error getting supported chains from contract:", error)
+
+          // Fallback: check each chain individually
+          for (const chain of CHAINS) {
+            try {
+              const isSupported = await isChainSupported(chain.id)
+              supported[chain.id] = isSupported
+              console.log(`Chain ${chain.id} (${chain.name}) supported: ${isSupported}`)
+            } catch (chainError) {
+              console.error(`Error checking support for chain ${chain.id}:`, chainError)
+              // Default to supported for major chains if check fails
+              supported[chain.id] = [1, 42161, 137, 8453, 43114, 56, 10].includes(chain.id)
+            }
+          }
         }
 
-        console.log("Supported chains:", supported)
+        console.log("Final supported chains map:", supported)
         setSupportedChains(supported)
       } catch (error) {
-        console.error("Error getting supported chains:", error)
+        console.error("Error in checkSupportedChains:", error)
 
-        // Fallback: check each chain individually
+        // Fallback: assume major chains are supported
         for (const chain of CHAINS) {
-          supported[chain.id] = await isChainSupported(chain.id)
+          supported[chain.id] = [1, 42161, 137, 8453, 43114, 56, 10].includes(chain.id)
         }
+        setSupportedChains(supported)
+      } finally {
+        setIsCheckingSupport(false)
       }
-
-      setSupportedChains(supported)
-      setIsCheckingSupport(false)
     }
 
-    checkSupportedChains()
-  }, [isConnected, isOnOptimism])
+    if (web3) {
+      checkSupportedChains()
+    }
+  }, [web3])
 
   // Update fee when inputs change
   useEffect(() => {
