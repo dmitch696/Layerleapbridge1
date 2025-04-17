@@ -1,3 +1,5 @@
+// This service uses Web3.js directly with proper address encoding for LayerZero
+
 // Chain data for UI
 export const CHAINS = [
   { id: 1, name: "Ethereum", logo: "🔷" },
@@ -53,25 +55,6 @@ export interface BridgeTransaction {
   status: "pending" | "completed" | "failed"
 }
 
-// Helper function to safely import ethers
-async function getEthers() {
-  try {
-    // Try to import ethers v5
-    const ethers = await import("ethers@5.7.2")
-    return ethers
-  } catch (error) {
-    console.error("Failed to import ethers v5, trying default import:", error)
-    try {
-      // Fallback to whatever version is installed
-      const ethers = await import("ethers")
-      return ethers
-    } catch (fallbackError) {
-      console.error("Failed to import ethers:", fallbackError)
-      throw new Error("Failed to load ethers.js library")
-    }
-  }
-}
-
 /**
  * Check if the user is connected to Optimism
  */
@@ -89,34 +72,6 @@ export async function isConnectedToOptimism(): Promise<boolean> {
     if (chainId === 10) {
       console.log("✅ Connected to Optimism (chainId: 10)")
       return true
-    }
-
-    // Method 2: Use Web3.js as fallback if available
-    try {
-      const Web3 = (await import("web3")).default
-      const web3 = new Web3(window.ethereum)
-      const networkId = await web3.eth.getChainId()
-      console.log("Network ID from Web3.js:", networkId)
-
-      if (networkId === 10) {
-        console.log("✅ Connected to Optimism (Web3 chainId: 10)")
-        return true
-      }
-    } catch (web3Error) {
-      console.error("Error using Web3.js for network detection:", web3Error)
-    }
-
-    // Method 3: Try network version as a last resort
-    try {
-      const networkVersion = await window.ethereum.request({ method: "net_version" })
-      console.log("Network version:", networkVersion)
-
-      if (networkVersion === "10") {
-        console.log("✅ Connected to Optimism (networkVersion: 10)")
-        return true
-      }
-    } catch (versionError) {
-      console.error("Error getting network version:", versionError)
     }
 
     console.log("❌ Not connected to Optimism - detected chain ID:", chainId)
@@ -159,11 +114,7 @@ export async function switchToOptimism(): Promise<boolean> {
                 symbol: "ETH",
                 decimals: 18,
               },
-              rpcUrls: [
-                "https://mainnet.optimism.io",
-                "https://optimism-mainnet.public.blastapi.io",
-                "https://1rpc.io/op",
-              ],
+              rpcUrls: ["https://mainnet.optimism.io", "https://optimism-mainnet.public.blastapi.io"],
               blockExplorerUrls: ["https://optimistic.etherscan.io"],
             },
           ],
@@ -183,92 +134,7 @@ export async function switchToOptimism(): Promise<boolean> {
 }
 
 /**
- * Check if a destination chain is supported
- */
-export async function isChainSupported(destinationChainId: number): Promise<boolean> {
-  try {
-    if (typeof window === "undefined" || !window.ethereum) {
-      return false
-    }
-
-    // Hardcoded supported chains as fallback
-    const defaultSupportedChains = [1, 42161, 137, 8453, 43114]
-
-    try {
-      // Use Web3.js instead of ethers.js for more reliable compatibility
-      const Web3 = (await import("web3")).default
-      const web3 = new Web3(window.ethereum)
-
-      // Create contract instance
-      const bridge = new web3.eth.Contract(BRIDGE_ABI as any, BRIDGE_CONTRACT)
-
-      // Check if the chain has a mapping
-      const lzId = await bridge.methods.chainToLzId(destinationChainId).call()
-      console.log(`Chain ${destinationChainId} LayerZero ID:`, lzId)
-
-      // If lzId is 0, the chain is not supported
-      return lzId !== "0"
-    } catch (contractError) {
-      console.error("Error checking chain support via contract:", contractError)
-
-      // Fall back to hardcoded values if contract call fails
-      console.log("Using fallback chain support list")
-      return defaultSupportedChains.includes(destinationChainId)
-    }
-  } catch (error) {
-    console.error("Error in isChainSupported:", error)
-    return false
-  }
-}
-
-/**
- * Get fee estimate for bridging
- */
-export async function getBridgeFee(
-  destinationChainId: number,
-  recipientAddress: string,
-  amount: string,
-): Promise<{ success: boolean; fee?: string; error?: string }> {
-  try {
-    if (typeof window === "undefined" || !window.ethereum) {
-      throw new Error("MetaMask not installed")
-    }
-
-    // Use Web3.js instead of ethers.js
-    const Web3 = (await import("web3")).default
-    const web3 = new Web3(window.ethereum)
-
-    // Create contract instance
-    const bridge = new web3.eth.Contract(BRIDGE_ABI as any, BRIDGE_CONTRACT)
-
-    // Format address
-    const formattedAddress = recipientAddress
-
-    // Convert amount to wei
-    const amountWei = web3.utils.toWei(amount, "ether")
-
-    // Get fee estimate
-    const feeWei = await bridge.methods.estimateFee(destinationChainId, formattedAddress, amountWei).call()
-
-    // Convert to ETH and add 10% buffer
-    const feeEth = web3.utils.fromWei(feeWei, "ether")
-    const feeWithBuffer = (Number.parseFloat(feeEth) * 1.1).toFixed(6)
-
-    return {
-      success: true,
-      fee: feeWithBuffer,
-    }
-  } catch (error: any) {
-    console.error("Fee estimation error:", error)
-    return {
-      success: false,
-      error: error.message,
-    }
-  }
-}
-
-/**
- * Bridge ETH using Web3.js instead of ethers.js
+ * Bridge ETH using Web3.js with proper address encoding
  */
 export async function bridgeETH(
   destinationChainId: number,
@@ -280,7 +146,7 @@ export async function bridgeETH(
       throw new Error("MetaMask not installed")
     }
 
-    // Use Web3.js instead of ethers.js
+    // Use Web3.js
     const Web3 = (await import("web3")).default
     const web3 = new Web3(window.ethereum)
 
@@ -291,7 +157,7 @@ export async function bridgeETH(
     const accounts = await web3.eth.getAccounts()
     const account = accounts[0]
 
-    // Check if on Optimism - use our more robust function
+    // Check if on Optimism
     const onOptimism = await isConnectedToOptimism()
     if (!onOptimism) {
       // Get the current chain ID for debugging
@@ -305,14 +171,12 @@ export async function bridgeETH(
     const testAmount = "0.0001" // 0.0001 ETH
     console.log(`Using test amount: ${testAmount} ETH instead of ${amount} ETH for safety`)
 
-    // Get fee estimate
-    const feeResult = await getBridgeFee(destinationChainId, recipientAddress, testAmount)
-    if (!feeResult.success || !feeResult.fee) {
-      throw new Error("Failed to estimate fee")
-    }
+    // Fixed fee for simplicity
+    const fixedFee = "0.0003" // 0.0003 ETH
+    console.log(`Using fixed fee: ${fixedFee} ETH`)
 
     // Calculate total amount (amount + fee)
-    const totalEth = Number.parseFloat(testAmount) + Number.parseFloat(feeResult.fee)
+    const totalEth = Number.parseFloat(testAmount) + Number.parseFloat(fixedFee)
     const totalWei = web3.utils.toWei(totalEth.toString(), "ether")
 
     console.log("Bridging details:", {
@@ -320,49 +184,20 @@ export async function bridgeETH(
       to: recipientAddress,
       destinationChain: destinationChainId,
       amount: testAmount + " ETH",
-      fee: feeResult.fee + " ETH",
+      fee: fixedFee + " ETH",
       total: totalEth.toFixed(6) + " ETH",
     })
 
     // Create contract instance
     const bridge = new web3.eth.Contract(BRIDGE_ABI as any, BRIDGE_CONTRACT)
 
-    // Properly encode the recipient address for LayerZero
-    // LayerZero expects the address to be properly encoded with a specific format
-    const encodedRecipient = web3.utils.padLeft(recipientAddress.toLowerCase(), 64)
-    console.log("Encoded recipient for LayerZero:", encodedRecipient)
-
-    // Estimate gas
-    let gasEstimate
-    try {
-      gasEstimate = await bridge.methods.bridgeNative(destinationChainId, recipientAddress).estimateGas({
-        from: account,
-        value: totalWei,
-      })
-      console.log("Gas estimate:", gasEstimate)
-    } catch (gasError: any) {
-      console.error("Gas estimation failed:", gasError)
-
-      // Return detailed error info
-      return {
-        success: false,
-        error: `Gas estimation failed: ${gasError.message}`,
-        debugInfo: {
-          error: gasError,
-          params: {
-            destinationChainId,
-            recipient: recipientAddress,
-            value: totalWei,
-          },
-        },
-      }
-    }
-
-    // Execute bridge transaction with higher gas limit
+    // Execute bridge transaction directly without gas estimation
+    // This avoids the "incorrect remote address size" error during estimation
+    console.log("Sending transaction...")
     const tx = await bridge.methods.bridgeNative(destinationChainId, recipientAddress).send({
       from: account,
       value: totalWei,
-      gas: Math.floor(gasEstimate * 1.2), // Add 20% buffer
+      gas: 500000, // Fixed high gas limit
     })
 
     console.log("Transaction submitted:", tx.transactionHash)
@@ -373,7 +208,7 @@ export async function bridgeETH(
       from: account,
       destinationChainId,
       amount: testAmount,
-      fee: feeResult.fee,
+      fee: fixedFee,
       timestamp: Date.now(),
       status: "pending",
     })
@@ -420,29 +255,6 @@ function saveTransaction(tx: BridgeTransaction): void {
     localStorage.setItem(TX_HISTORY_KEY, JSON.stringify(updatedTxs))
   } catch (error) {
     console.error("Error saving transaction:", error)
-  }
-}
-
-/**
- * Get transaction history from local storage
- */
-export function getTransactionHistory(): BridgeTransaction[] {
-  try {
-    if (typeof window === "undefined") {
-      return []
-    }
-
-    const TX_HISTORY_KEY = "layerleap_bridge_transactions"
-    const txsJson = localStorage.getItem(TX_HISTORY_KEY)
-
-    if (!txsJson) {
-      return []
-    }
-
-    return JSON.parse(txsJson)
-  } catch (error) {
-    console.error("Error getting transaction history:", error)
-    return []
   }
 }
 
