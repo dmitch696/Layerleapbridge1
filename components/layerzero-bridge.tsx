@@ -70,7 +70,6 @@ export default function LayerZeroBridge() {
   const [showStargateOption, setShowStargateOption] = useState(false)
   const [debugInfo, setDebugInfo] = useState<any>(null)
   const [account, setAccount] = useState<string | null>(null) // Add account state
-  let feeWithBuffer
 
   // Initialize Web3 when component mounts
   useEffect(() => {
@@ -336,83 +335,71 @@ export default function LayerZeroBridge() {
       const zeroAddress = "0x0000000000000000000000000000000000000000"
 
       // Try to estimate the fee, but use a fallback if it fails
-      let nativeFee
-      let totalValue
 
       try {
         console.log("Estimating fees with parameters:", {
           lzDestChainId,
-          encodedRecipient,
-          payload: payload.substring(0, 66) + "...", // Truncate for logging
+          encodedRecipient: encodedRecipient.substring(0, 42) + "...",
+          payloadLength: payload.length,
           refundAddress: account,
           zroPaymentAddress: zeroAddress,
-          adapterParams: adapterParams.substring(0, 66) + "...", // Truncate for logging
+          adapterParamsLength: adapterParams.length,
         })
 
-        const [estimatedNativeFee, zroFee] = await lzEndpoint.methods
-          .estimateFees(
-            lzDestChainId,
-            encodedRecipient,
-            payload,
-            account, // refund address
-            zeroAddress, // zroPaymentAddress
-            adapterParams, // adapter params
-          )
-          .call()
+        // Try to estimate fees, but be prepared for failure
+        let nativeFeeWei
+        let totalValueWei
 
-        nativeFee = estimatedNativeFee
-
-        console.log("Estimated native fee:", web3.utils.fromWei(nativeFee, "ether"), "ETH")
-
-        // Add a 200% buffer to the fee to ensure it's enough (3x the estimated fee)
-        let feeWithBuffer
         try {
-          // Try using toBN if available
-          feeWithBuffer = web3.utils.toBN(nativeFee).mul(web3.utils.toBN(300)).div(web3.utils.toBN(100))
-        } catch (bnError) {
-          // Fallback to simple math if toBN is not available
-          const feeEth = Number(web3.utils.fromWei(nativeFee, "ether"))
+          const [estimatedNativeFee, zroFee] = await lzEndpoint.methods
+            .estimateFees(
+              lzDestChainId,
+              encodedRecipient,
+              payload,
+              account, // refund address
+              zeroAddress, // zroPaymentAddress
+              adapterParams, // adapter params
+            )
+            .call()
+
+          console.log("Estimated native fee:", web3.utils.fromWei(estimatedNativeFee, "ether"), "ETH")
+
+          // Add a 200% buffer to the fee (3x the estimated fee)
+          const feeEth = Number(web3.utils.fromWei(estimatedNativeFee, "ether"))
           const feeWithBufferEth = feeEth * 3 // 3x the fee
-          feeWithBuffer = web3.utils.toWei(feeWithBufferEth.toString(), "ether")
+          const feeWithBufferWei = web3.utils.toWei(feeWithBufferEth.toString(), "ether")
+
+          nativeFeeWei = feeWithBufferWei
+        } catch (feeError) {
+          console.error("Fee estimation failed:", feeError)
+
+          // Use a fixed fee as fallback (0.002 ETH - higher than before)
+          nativeFeeWei = web3.utils.toWei("0.002", "ether")
+          console.log("Using fallback fee:", web3.utils.fromWei(nativeFeeWei, "ether"), "ETH")
+
+          // Log detailed error for debugging
+          setDebugInfo({
+            error: "Fee estimation failed",
+            details: feeError.toString(),
+            parameters: {
+              lzDestChainId,
+              encodedRecipient: encodedRecipient.substring(0, 42) + "...",
+              payloadLength: payload.length,
+              refundAddress: account,
+              zroPaymentAddress: zeroAddress,
+              adapterParamsLength: adapterParams.length,
+            },
+          })
         }
-        console.log("Fee with 200% buffer:", web3.utils.fromWei(feeWithBuffer.toString(), "ether"), "ETH")
 
         // Calculate total value to send (amount + fee) using simple math
         const amountEth = Number(web3.utils.fromWei(amountWei, "ether"))
-        const feeEth = Number(web3.utils.fromWei(nativeFee, "ether"))
+        const feeEth = Number(web3.utils.fromWei(nativeFeeWei, "ether"))
         const totalEth = amountEth + feeEth
-        totalValue = web3.utils.toWei(totalEth.toString(), "ether")
-      } catch (feeError) {
-        console.error("Fee estimation failed:", feeError)
+        totalValueWei = web3.utils.toWei(totalEth.toString(), "ether")
 
-        // Use a fixed fee as fallback (0.001 ETH)
-        nativeFee = web3.utils.toWei("0.001", "ether")
-        console.log("Using fallback fee:", web3.utils.fromWei(nativeFee, "ether"), "ETH")
+        console.log("Total value:", web3.utils.fromWei(totalValueWei, "ether"), "ETH")
 
-        // Log detailed error for debugging
-        setDebugInfo({
-          error: "Fee estimation failed",
-          details: feeError.toString(),
-          parameters: {
-            lzDestChainId,
-            encodedRecipient: encodedRecipient.substring(0, 42) + "...",
-            payloadLength: payload.length,
-            refundAddress: account,
-            zroPaymentAddress: zeroAddress,
-            adapterParamsLength: adapterParams.length,
-          },
-        })
-      }
-
-      // Calculate total value to send (amount + fee) using simple math
-      const amountEth = Number(web3.utils.fromWei(amountWei, "ether"))
-      const feeWithBufferEth = Number(web3.utils.fromWei(feeWithBuffer.toString(), "ether"))
-      const totalEth = amountEth + feeWithBufferEth
-      totalValue = web3.utils.toWei(totalEth.toString(), "ether")
-
-      console.log("Total value:", web3.utils.fromWei(totalValue, "ether"), "ETH")
-
-      try {
         // Send the transaction
         console.log("Sending transaction...")
         const tx = await lzEndpoint.methods
@@ -426,7 +413,7 @@ export default function LayerZeroBridge() {
           )
           .send({
             from: account,
-            value: totalValue.toString(),
+            value: totalValueWei,
             gas: 1000000, // Much higher gas limit for safety
             gasPrice: await web3.eth.getGasPrice(), // Use current gas price
           })
@@ -460,12 +447,9 @@ export default function LayerZeroBridge() {
             lzDestChainId,
             encodedRecipient: encodedRecipient.substring(0, 42) + "...",
             payloadLength: payload.length,
-            value: web3.utils.fromWei(totalValue.toString(), "ether"),
+            value: totalValueWei ? web3.utils.fromWei(totalValueWei, "ether") : "unknown",
             gas: 1000000,
             adapterParams: adapterParams.substring(0, 66) + "...",
-            nativeFee: web3.utils.fromWei(nativeFee, "ether"),
-            feeWithBuffer: web3.utils.fromWei(feeWithBuffer.toString(), "ether"),
-            totalValue: web3.utils.fromWei(totalValue.toString(), "ether"),
           },
         })
 
