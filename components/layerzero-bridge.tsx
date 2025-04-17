@@ -70,6 +70,7 @@ export default function LayerZeroBridge() {
   const [showStargateOption, setShowStargateOption] = useState(false)
   const [debugInfo, setDebugInfo] = useState<any>(null)
   const [account, setAccount] = useState<string | null>(null) // Add account state
+  const [balance, setBalance] = useState<string | null>(null)
 
   // Initialize Web3 when component mounts
   useEffect(() => {
@@ -106,6 +107,16 @@ export default function LayerZeroBridge() {
             // Check if on Optimism
             const onOptimism = await isConnectedToOptimism()
             setIsOnOptimism(onOptimism)
+
+            // Get account balance
+            if (web3) {
+              const account = accounts[0]
+              setAccount(account)
+              const balanceWei = await web3.eth.getBalance(account)
+              const balanceEth = web3.utils.fromWei(balanceWei, "ether")
+              setBalance(balanceEth)
+              console.log(`Account balance: ${balanceEth} ETH`)
+            }
           }
         } catch (error) {
           console.error("Error checking wallet connection:", error)
@@ -124,14 +135,32 @@ export default function LayerZeroBridge() {
         if (accounts.length > 0) {
           const onOptimism = await isConnectedToOptimism()
           setIsOnOptimism(onOptimism)
+
+          // Update account and balance
+          if (web3) {
+            const account = accounts[0]
+            setAccount(account)
+            const balanceWei = await web3.eth.getBalance(account)
+            const balanceEth = web3.utils.fromWei(balanceWei, "ether")
+            setBalance(balanceEth)
+          }
         } else {
           setIsOnOptimism(false)
+          setAccount(null)
+          setBalance(null)
         }
       }
 
       const handleChainChanged = async () => {
         const onOptimism = await isConnectedToOptimism()
         setIsOnOptimism(onOptimism)
+
+        // Update balance on chain change
+        if (web3 && account) {
+          const balanceWei = await web3.eth.getBalance(account)
+          const balanceEth = web3.utils.fromWei(balanceWei, "ether")
+          setBalance(balanceEth)
+        }
       }
 
       window.ethereum.on("accountsChanged", handleAccountsChanged)
@@ -143,7 +172,7 @@ export default function LayerZeroBridge() {
         window.ethereum.removeListener("chainChanged", handleChainChanged)
       }
     }
-  }, [])
+  }, [web3, account])
 
   const connectWallet = async () => {
     if (!window.ethereum) {
@@ -191,7 +220,7 @@ export default function LayerZeroBridge() {
     }
 
     // Remove the 0x prefix for encoding
-    const addressWithoutPrefix = address.substring(2)
+    const addressWithoutPrefix = address.substring(2).toLowerCase()
 
     // Pad the address to 32 bytes (64 hex characters)
     // This is what LayerZero expects - the address needs to be left-padded with zeros
@@ -210,38 +239,6 @@ export default function LayerZeroBridge() {
 
     // Version 1 of adapter params just contains the gas limit
     return web3.eth.abi.encodeParameters(["uint16", "uint256"], [1, gasLimit])
-  }
-
-  /**
-   * Create more detailed adapter parameters for LayerZero
-   * This specifies gas parameters for the destination chain with more detail
-   */
-  function createDetailedAdapterParams(gasLimit = 500000, gasPrice = "1000000000"): string {
-    if (!web3) return "0x"
-
-    // Version 2 of adapter params contains more detailed gas parameters
-    // Format: [version, gasLimit, gasPrice]
-    return web3.eth.abi.encodeParameters(
-      ["uint16", "uint256", "uint256", "address"],
-      [2, gasLimit, gasPrice, account], // Version 2, gasLimit, gasPrice, refund address
-    )
-  }
-
-  /**
-   * Safe method to add a percentage to a value without using toBN
-   * This avoids the "toBN is not a function" error
-   */
-  function addPercentage(value: string, percentage: number): string {
-    try {
-      // Try to parse as number and add percentage
-      const valueNum = Number(value)
-      const result = valueNum * (1 + percentage / 100)
-      return result.toString()
-    } catch (error) {
-      console.error("Error adding percentage:", error)
-      // Fallback: just return the original value
-      return value
-    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -325,7 +322,9 @@ export default function LayerZeroBridge() {
       console.log("Encoded recipient:", encodedRecipient)
 
       // Create the payload - for a simple ETH transfer, we just encode the amount
+      // Make sure it's a full 32-byte value
       const payload = web3.eth.abi.encodeParameter("uint256", amountWei)
+      console.log("Payload:", payload)
 
       // Create adapter parameters with a higher gas limit
       const adapterParams = createDefaultAdapterParams(500000) // 500k gas limit
@@ -334,136 +333,95 @@ export default function LayerZeroBridge() {
       // Zero address for ZRO token payments (we're not using ZRO)
       const zeroAddress = "0x0000000000000000000000000000000000000000"
 
-      // Try to estimate the fee, but use a fallback if it fails
+      // Get current account balance
+      const balanceWei = await web3.eth.getBalance(account)
+      const balanceEth = web3.utils.fromWei(balanceWei, "ether")
+      console.log(`Account balance: ${balanceEth} ETH`)
 
-      try {
-        console.log("Estimating fees with parameters:", {
-          lzDestChainId,
-          encodedRecipient: encodedRecipient.substring(0, 42) + "...",
-          payloadLength: payload.length,
-          refundAddress: account,
-          zroPaymentAddress: zeroAddress,
-          adapterParamsLength: adapterParams.length,
-        })
+      // Use a fixed fee to avoid estimation issues
+      const fixedFeeEth = 0.001 // 0.001 ETH
+      const fixedFeeWei = web3.utils.toWei(fixedFeeEth.toString(), "ether")
 
-        // Try to estimate fees, but be prepared for failure
-        let nativeFeeWei
-        let totalValueWei
+      // Calculate total value to send (amount + fee)
+      const amountEth = Number(web3.utils.fromWei(amountWei, "ether"))
+      const totalEth = amountEth + fixedFeeEth
+      const totalWei = web3.utils.toWei(totalEth.toString(), "ether")
 
-        try {
-          const [estimatedNativeFee, zroFee] = await lzEndpoint.methods
-            .estimateFees(
-              lzDestChainId,
-              encodedRecipient,
-              payload,
-              account, // refund address
-              zeroAddress, // zroPaymentAddress
-              adapterParams, // adapter params
-            )
-            .call()
+      console.log("Transaction details:")
+      console.log(`- Amount: ${amountEth} ETH`)
+      console.log(`- Fee: ${fixedFeeEth} ETH`)
+      console.log(`- Total: ${totalEth} ETH`)
+      console.log(`- Balance: ${balanceEth} ETH`)
 
-          console.log("Estimated native fee:", web3.utils.fromWei(estimatedNativeFee, "ether"), "ETH")
-
-          // Add a 200% buffer to the fee (3x the estimated fee)
-          const feeEth = Number(web3.utils.fromWei(estimatedNativeFee, "ether"))
-          const feeWithBufferEth = feeEth * 3 // 3x the fee
-          const feeWithBufferWei = web3.utils.toWei(feeWithBufferEth.toString(), "ether")
-
-          nativeFeeWei = feeWithBufferWei
-        } catch (feeError) {
-          console.error("Fee estimation failed:", feeError)
-
-          // Use a fixed fee as fallback (0.002 ETH - higher than before)
-          nativeFeeWei = web3.utils.toWei("0.002", "ether")
-          console.log("Using fallback fee:", web3.utils.fromWei(nativeFeeWei, "ether"), "ETH")
-
-          // Log detailed error for debugging
-          setDebugInfo({
-            error: "Fee estimation failed",
-            details: feeError.toString(),
-            parameters: {
-              lzDestChainId,
-              encodedRecipient: encodedRecipient.substring(0, 42) + "...",
-              payloadLength: payload.length,
-              refundAddress: account,
-              zroPaymentAddress: zeroAddress,
-              adapterParamsLength: adapterParams.length,
-            },
-          })
-        }
-
-        // Calculate total value to send (amount + fee) using simple math
-        const amountEth = Number(web3.utils.fromWei(amountWei, "ether"))
-        const feeEth = Number(web3.utils.fromWei(nativeFeeWei, "ether"))
-        const totalEth = amountEth + feeEth
-        totalValueWei = web3.utils.toWei(totalEth.toString(), "ether")
-
-        console.log("Total value:", web3.utils.fromWei(totalValueWei, "ether"), "ETH")
-
-        // Send the transaction
-        console.log("Sending transaction...")
-        const tx = await lzEndpoint.methods
-          .send(
-            lzDestChainId,
-            encodedRecipient,
-            payload,
-            account, // refund address (same as sender)
-            zeroAddress, // zroPaymentAddress - we're not using ZRO token
-            adapterParams,
-          )
-          .send({
-            from: account,
-            value: totalValueWei,
-            gas: 1000000, // Much higher gas limit for safety
-            gasPrice: await web3.eth.getGasPrice(), // Use current gas price
-          })
-
-        console.log("Transaction sent:", tx.transactionHash)
-        setTxHash(tx.transactionHash)
-
-        toast({
-          title: "Bridge Transaction Submitted",
-          description: "Your test amount (0.0001 ETH) is being bridged. This may take 10-30 minutes to complete.",
-        })
-      } catch (txError) {
-        console.error("Transaction failed:", txError)
-
-        // Show detailed error and offer Stargate as alternative
-        setError(`Transaction failed: ${txError.message || "Unknown error"}`)
-        setShowStargateOption(true)
-
-        // Try to extract more detailed error information
-        let errorDetails = txError.toString()
-        if (txError.receipt) {
-          errorDetails = `Transaction reverted. Gas used: ${txError.receipt.gasUsed}. Status: ${txError.receipt.status}`
-        }
-
-        // Log detailed error for debugging
-        setDebugInfo({
-          error: "Transaction failed",
-          details: errorDetails,
-          receipt: txError.receipt || "No receipt available",
-          parameters: {
-            lzDestChainId,
-            encodedRecipient: encodedRecipient.substring(0, 42) + "...",
-            payloadLength: payload.length,
-            value: totalValueWei ? web3.utils.fromWei(totalValueWei, "ether") : "unknown",
-            gas: 1000000,
-            adapterParams: adapterParams.substring(0, 66) + "...",
-          },
-        })
-
-        // Immediately show the Stargate option
-        toast({
-          title: "Direct Bridge Failed",
-          description: "Try using Stargate Finance instead for a more reliable bridge experience.",
-          variant: "destructive",
-        })
+      // Check if we have enough balance
+      if (Number(balanceEth) < totalEth) {
+        throw new Error(`Insufficient balance. You need at least ${totalEth} ETH but have ${balanceEth} ETH.`)
       }
+
+      // Log all parameters for debugging
+      const txParams = {
+        lzDestChainId,
+        encodedRecipient,
+        payload,
+        refundAddress: account,
+        zroPaymentAddress: zeroAddress,
+        adapterParams,
+        from: account,
+        value: totalWei,
+        gas: 1000000,
+      }
+
+      console.log("Transaction parameters:", txParams)
+      setDebugInfo({
+        transactionParams: txParams,
+        balance: balanceEth,
+        encodedRecipientLength: encodedRecipient.length,
+        payloadLength: payload.length,
+        adapterParamsLength: adapterParams.length,
+      })
+
+      // Show confirmation with detailed info
+      toast({
+        title: "Preparing Transaction",
+        description: `Bridging ${testAmount} ETH to ${destChain.name} with a fee of ${fixedFeeEth} ETH`,
+      })
+
+      // Send the transaction
+      console.log("Sending transaction...")
+      const tx = await lzEndpoint.methods
+        .send(
+          lzDestChainId,
+          encodedRecipient,
+          payload,
+          account, // refund address (same as sender)
+          zeroAddress, // zroPaymentAddress - we're not using ZRO token
+          adapterParams,
+        )
+        .send({
+          from: account,
+          value: totalWei,
+          gas: 1000000, // Much higher gas limit for safety
+          gasPrice: await web3.eth.getGasPrice(), // Use current gas price
+        })
+
+      console.log("Transaction sent:", tx.transactionHash)
+      setTxHash(tx.transactionHash)
+
+      toast({
+        title: "Bridge Transaction Submitted",
+        description: "Your test amount (0.0001 ETH) is being bridged. This may take 10-30 minutes to complete.",
+      })
     } catch (err: any) {
       console.error("Bridge error:", err)
       setError(err.message || "An unknown error occurred")
       setShowStargateOption(true)
+
+      // Add detailed error info
+      setDebugInfo({
+        ...debugInfo,
+        error: err.message,
+        errorObject: JSON.stringify(err, Object.getOwnPropertyNames(err)),
+      })
 
       toast({
         title: "Error",
@@ -516,7 +474,9 @@ export default function LayerZeroBridge() {
           <div className="p-3 bg-gray-700 rounded">
             <p className="text-sm font-medium">Test Transaction Details:</p>
             <p className="text-sm">• Amount: 0.0001 ETH</p>
-            <p className="text-sm">• Gas Limit: 300,000</p>
+            <p className="text-sm">• Fee: 0.001 ETH</p>
+            <p className="text-sm">• Total: 0.0011 ETH</p>
+            {balance && <p className="text-sm">• Your Balance: {Number(balance).toFixed(4)} ETH</p>}
             <p className="text-xs text-gray-400 mt-1">
               For safety, we're using a minimal test amount with proper address encoding
             </p>
