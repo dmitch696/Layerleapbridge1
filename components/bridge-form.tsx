@@ -3,433 +3,226 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useToast } from "@/components/ui/use-toast"
 import { Loader2 } from "lucide-react"
-import {
-  CHAINS,
-  isConnectedToOptimism,
-  switchToOptimism,
-  isChainSupported,
-  getBridgeFee,
-  bridgeETH,
-} from "@/services/ethers-bridge-service"
-import StargateRedirectButton from "./stargate-redirect-button"
+import EthereumLogo from "@/components/logos/ethereum-logo"
+import OptimismLogo from "@/components/logos/optimism-logo"
+import ArbitrumLogo from "@/components/logos/arbitrum-logo"
+import PolygonLogo from "@/components/logos/polygon-logo"
+import BaseLogo from "@/components/logos/base-logo"
+import AvalancheLogo from "@/components/logos/avalanche-logo"
+
+// Chain data for UI
+const CHAINS = [
+  { id: 1, name: "Ethereum", logo: EthereumLogo, chainId: 1 },
+  { id: 10, name: "Optimism", logo: OptimismLogo, chainId: 10 },
+  { id: 42161, name: "Arbitrum", logo: ArbitrumLogo, chainId: 42161 },
+  { id: 137, name: "Polygon", logo: PolygonLogo, chainId: 137 },
+  { id: 8453, name: "Base", logo: BaseLogo, chainId: 8453 },
+  { id: 43114, name: "Avalanche", logo: AvalancheLogo, chainId: 43114 },
+]
 
 export default function BridgeForm() {
-  const { toast } = useToast()
-  const [destinationChain, setDestinationChain] = useState("")
+  const [sourceChain, setSourceChain] = useState("10") // Default to Optimism
+  const [destChain, setDestChain] = useState("")
   const [amount, setAmount] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [isCheckingNetwork, setIsCheckingNetwork] = useState(true)
-  const [isCheckingSupport, setIsCheckingSupport] = useState(false)
-  const [fee, setFee] = useState<string | null>(null)
-  const [txHash, setTxHash] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
   const [isConnected, setIsConnected] = useState(false)
-  const [isOnOptimism, setIsOnOptimism] = useState(false)
-  const [supportedChains, setSupportedChains] = useState<Record<number, boolean>>({})
-  const [showDebugInfo, setShowDebugInfo] = useState(false)
-  const [debugInfo, setDebugInfo] = useState<any>(null)
-  const [directBridgeFailed, setDirectBridgeFailed] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
 
-  // Check if wallet is connected and on the right network
+  // Check if wallet is connected
   useEffect(() => {
-    async function checkConnection() {
-      setIsCheckingNetwork(true)
-
-      if (window.ethereum) {
+    if (typeof window !== "undefined" && window.ethereum) {
+      const checkConnection = async () => {
         try {
-          // Check if connected
           const accounts = await window.ethereum.request({ method: "eth_accounts" })
-          const connected = accounts.length > 0
-          setIsConnected(connected)
-
-          if (connected) {
-            // Check if on Optimism using our improved function
-            const onOptimism = await isConnectedToOptimism()
-            console.log("isConnectedToOptimism result:", onOptimism)
-            setIsOnOptimism(onOptimism)
-
-            // If not on Optimism, log detailed chain info for debugging
-            if (!onOptimism) {
-              const chainIdHex = await window.ethereum.request({ method: "eth_chainId" })
-              console.log("Current chain ID hex:", chainIdHex)
-              console.log("Expected Optimism chain ID hex: 0xA")
-            }
-          }
+          setIsConnected(accounts.length > 0)
         } catch (error) {
           console.error("Error checking wallet connection:", error)
         }
       }
 
-      setIsCheckingNetwork(false)
-    }
+      checkConnection()
 
-    checkConnection()
-
-    // Set up event listeners for account and chain changes
-    if (window.ethereum) {
-      const handleAccountsChanged = async (accounts: string[]) => {
+      window.ethereum.on("accountsChanged", (accounts: string[]) => {
         setIsConnected(accounts.length > 0)
-        if (accounts.length > 0) {
-          // Check if on Optimism using our improved function
-          const onOptimism = await isConnectedToOptimism()
-          setIsOnOptimism(onOptimism)
-        } else {
-          setIsOnOptimism(false)
-        }
-      }
+      })
 
-      const handleChainChanged = async (chainIdHex: string) => {
-        const chainId = Number.parseInt(chainIdHex, 16)
-        console.log("Chain changed to:", chainId, "Hex:", chainIdHex)
-
-        // Check if the new chain is Optimism
-        const onOptimism = chainId === 10
-        console.log("Is Optimism:", onOptimism)
-        setIsOnOptimism(onOptimism)
-      }
-
-      window.ethereum.on("accountsChanged", handleAccountsChanged)
-      window.ethereum.on("chainChanged", handleChainChanged)
-
-      // Cleanup
       return () => {
-        window.ethereum.removeListener("accountsChanged", handleAccountsChanged)
-        window.ethereum.removeListener("chainChanged", handleChainChanged)
+        window.ethereum.removeAllListeners("accountsChanged")
       }
     }
   }, [])
 
-  // Check which chains are supported
-  useEffect(() => {
-    async function checkSupportedChains() {
-      if (!isConnected) return
-
-      setIsCheckingSupport(true)
-      const supported: Record<number, boolean> = {}
-
-      // Default all chains to supported if we can't check
-      const defaultSupported = true
-
-      for (const chain of CHAINS) {
-        try {
-          supported[chain.id] = await isChainSupported(chain.id)
-        } catch (error) {
-          console.error(`Error checking support for chain ${chain.id}:`, error)
-          supported[chain.id] = defaultSupported
-        }
-      }
-
-      console.log("Supported chains:", supported)
-      setSupportedChains(supported)
-      setIsCheckingSupport(false)
-    }
-
-    checkSupportedChains()
-  }, [isConnected, isOnOptimism])
-
-  // Update fee when inputs change
-  useEffect(() => {
-    async function updateFee() {
-      if (destinationChain && amount && Number.parseFloat(amount) > 0 && isConnected) {
-        try {
-          // Get current account
-          const accounts = await window.ethereum.request({ method: "eth_accounts" })
-          if (accounts.length === 0) return
-
-          const result = await getBridgeFee(Number.parseInt(destinationChain), accounts[0], amount)
-
-          if (result.success && result.fee) {
-            setFee(result.fee)
-          } else if (result.error) {
-            console.warn("Fee estimation error:", result.error)
-          }
-        } catch (error) {
-          console.error("Error updating fee:", error)
-        }
-      } else {
-        setFee(null)
-      }
-    }
-
-    updateFee()
-  }, [destinationChain, amount, isConnected])
+  const handleSwapChains = () => {
+    const temp = sourceChain
+    setSourceChain(destChain)
+    setDestChain(temp)
+  }
 
   const connectWallet = async () => {
-    if (!window.ethereum) {
-      toast({
-        title: "MetaMask Not Found",
-        description: "Please install MetaMask to use this feature.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    try {
-      await window.ethereum.request({ method: "eth_requestAccounts" })
-      const accounts = await window.ethereum.request({ method: "eth_accounts" })
-      setIsConnected(accounts.length > 0)
-
-      if (accounts.length > 0) {
-        const onOptimism = await isConnectedToOptimism()
-        setIsOnOptimism(onOptimism)
+    if (typeof window !== "undefined" && window.ethereum) {
+      try {
+        await window.ethereum.request({ method: "eth_requestAccounts" })
+        setIsConnected(true)
+      } catch (error) {
+        console.error("Error connecting wallet:", error)
       }
-
-      toast({
-        title: "Wallet Connected",
-        description: "Your wallet has been connected successfully.",
-      })
-    } catch (error: any) {
-      toast({
-        title: "Connection Failed",
-        description: error.message || "Failed to connect wallet",
-        variant: "destructive",
-      })
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
-    setError(null)
-    setTxHash(null)
-    setDebugInfo(null)
-    setDirectBridgeFailed(false)
 
-    try {
-      // Check if connected
-      if (!isConnected) {
-        await connectWallet()
-        setIsLoading(false)
-        return
-      }
-
-      // Check if on Optimism
-      if (!isOnOptimism) {
-        toast({
-          title: "Wrong Network",
-          description: "Switching to Optimism network...",
-        })
-
-        const switched = await switchToOptimism()
-        if (!switched) {
-          toast({
-            title: "Network Switch Failed",
-            description: "Could not switch to Optimism network. Please try manually switching in your wallet.",
-            variant: "destructive",
-          })
-          setIsLoading(false)
-          return
-        }
-
-        setIsOnOptimism(true)
-      }
-
-      // Validate inputs
-      if (!destinationChain || !amount) {
-        setError("Please fill in all fields")
-        setIsLoading(false)
-        return
-      }
-
-      const amountNum = Number.parseFloat(amount)
-      if (isNaN(amountNum) || amountNum <= 0) {
-        setError("Please enter a valid amount")
-        setIsLoading(false)
-        return
-      }
-
-      // Check if destination chain is supported
-      const destChainId = Number.parseInt(destinationChain)
-      if (!supportedChains[destChainId]) {
-        setError(
-          `Destination chain ${CHAINS.find((c) => c.id === destChainId)?.name || destChainId} is not supported by the bridge contract.`,
-        )
-        setIsLoading(false)
-        return
-      }
-
-      // Get current account
-      const accounts = await window.ethereum.request({ method: "eth_accounts" })
-      if (accounts.length === 0) {
-        setError("No wallet connected")
-        setIsLoading(false)
-        return
-      }
-
-      // Execute bridge
-      const result = await bridgeETH(destChainId, accounts[0], amount)
-
-      if (result.success && result.txHash) {
-        setTxHash(result.txHash)
-        toast({
-          title: "Bridge Transaction Submitted",
-          description: "Your assets are being bridged. This may take 10-30 minutes to complete.",
-        })
-        // Reset amount after successful transaction
-        setAmount("")
-      } else {
-        setError(result.error || "Bridge transaction failed")
-        setDebugInfo(result.debugInfo)
-        setDirectBridgeFailed(true)
-
-        toast({
-          title: "Bridge Failed",
-          description: result.error || "Failed to bridge assets",
-          variant: "destructive",
-        })
-      }
-    } catch (err: any) {
-      setError(err.message)
-      setDirectBridgeFailed(true)
-
-      toast({
-        title: "Error",
-        description: err.message,
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
+    if (!isConnected) {
+      await connectWallet()
+      return
     }
+
+    setIsLoading(true)
+
+    // Simulate processing
+    setTimeout(() => {
+      setIsLoading(false)
+      // In a real implementation, this would initiate the bridge transaction
+    }, 2000)
   }
 
   return (
-    <Card className="bg-gray-800 border-gray-700">
-      <CardContent className="pt-6">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="p-3 bg-blue-900/30 rounded mb-4">
-            <div className="flex items-center gap-2">
-              <span className="text-red-400 font-medium">Source:</span>
-              <span className="flex items-center gap-1">
-                <span>🔴</span>
-                <span>Optimism</span>
-              </span>
-            </div>
-            <p className="text-xs text-gray-400 mt-1">This bridge allows transfers from Optimism to other chains</p>
-          </div>
+    <div className="space-y-4">
+      <h3 className="text-xl font-bold mb-4">Bridge Your Assets</h3>
 
-          <div className="space-y-2">
-            <Label htmlFor="destinationChain">Destination Chain</Label>
-            <select
-              id="destinationChain"
-              className="w-full p-2 bg-gray-700 rounded"
-              value={destinationChain}
-              onChange={(e) => setDestinationChain(e.target.value)}
-              required
-              disabled={isCheckingSupport}
-            >
-              <option value="">Select destination chain</option>
-              {CHAINS.map((chain) => (
-                <option key={chain.id} value={chain.id} disabled={isConnected && supportedChains[chain.id] === false}>
-                  {chain.logo} {chain.name}{" "}
-                  {isConnected && supportedChains[chain.id] === false ? "(Not Supported)" : ""}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="sourceChain">Source Chain</Label>
+          <select
+            id="sourceChain"
+            className="w-full p-2 bg-gray-800 border border-gray-700 rounded-md"
+            value={sourceChain}
+            onChange={(e) => setSourceChain(e.target.value)}
+          >
+            <option value="">Select source chain</option>
+            {CHAINS.map((chain) => {
+              const ChainLogo = chain.logo
+              return (
+                <option key={chain.id} value={chain.id} className="flex items-center">
+                  {chain.name}
                 </option>
-              ))}
-            </select>
-            {isCheckingSupport && (
-              <div className="flex items-center text-xs text-gray-400">
-                <Loader2 className="h-3 w-3 mr-2 animate-spin" />
-                Checking supported chains...
+              )
+            })}
+          </select>
+          <div className="mt-2 flex items-center">
+            {sourceChain && (
+              <div className="flex items-center space-x-2">
+                <span>Selected:</span>
+                {(() => {
+                  const chain = CHAINS.find((c) => c.id.toString() === sourceChain)
+                  if (chain) {
+                    const ChainLogo = chain.logo
+                    return (
+                      <>
+                        <ChainLogo className="h-6 w-6" />
+                        <span>{chain.name}</span>
+                      </>
+                    )
+                  }
+                  return null
+                })()}
               </div>
             )}
           </div>
+        </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="amount">Amount (ETH)</Label>
-            <Input
-              id="amount"
-              type="number"
-              step="0.0001"
-              min="0.0001"
-              className="bg-gray-700 border-gray-600"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="0.0001"
-              required
-            />
-          </div>
-
-          {fee && (
-            <div className="p-3 bg-gray-700 rounded">
-              <p className="text-sm">Estimated Fee: {fee} ETH</p>
-              <p className="text-sm">
-                Total: {(Number.parseFloat(amount || "0") + Number.parseFloat(fee)).toFixed(6)} ETH
-              </p>
-              <p className="text-xs text-gray-400 mt-1">Includes gas fees for the destination chain</p>
-            </div>
-          )}
-
-          <Button type="submit" className="w-full" disabled={isLoading || isCheckingNetwork}>
-            {isLoading ? (
-              <span className="flex items-center">
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Processing...
-              </span>
-            ) : !isConnected ? (
-              "Connect Wallet"
-            ) : !isOnOptimism ? (
-              "Switch to Optimism"
-            ) : (
-              "Bridge ETH via LayerZero"
-            )}
+        <div className="flex justify-center">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={handleSwapChains}
+            className="rounded-full h-8 w-8 p-0 flex items-center justify-center"
+          >
+            ⇅
           </Button>
-        </form>
+        </div>
 
-        {txHash && (
-          <div className="mt-4 p-3 bg-green-800/50 rounded">
-            <p className="font-medium">Transaction Submitted!</p>
-            <p className="text-sm break-all">Hash: {txHash}</p>
-            <a
-              href={`https://optimistic.etherscan.io/tx/${txHash}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-400 hover:underline text-sm"
-            >
-              View on Optimism Explorer
-            </a>
-          </div>
-        )}
-
-        {error && (
-          <div className="mt-4 p-3 bg-red-800/50 rounded">
-            <p className="font-medium">Error</p>
-            <p className="text-sm break-all">{error}</p>
-
-            {debugInfo && (
-              <div className="mt-2">
-                <button
-                  onClick={() => setShowDebugInfo(!showDebugInfo)}
-                  className="text-xs text-blue-400 hover:underline"
-                >
-                  {showDebugInfo ? "Hide Debug Info" : "Show Debug Info"}
-                </button>
-
-                {showDebugInfo && (
-                  <pre className="mt-2 text-xs overflow-auto max-h-40 p-2 bg-gray-900 rounded">
-                    {JSON.stringify(debugInfo, null, 2)}
-                  </pre>
-                )}
+        <div className="space-y-2">
+          <Label htmlFor="destChain">Destination Chain</Label>
+          <select
+            id="destChain"
+            className="w-full p-2 bg-gray-800 border border-gray-700 rounded-md"
+            value={destChain}
+            onChange={(e) => setDestChain(e.target.value)}
+          >
+            <option value="">Select destination chain</option>
+            {CHAINS.map((chain) => (
+              <option key={chain.id} value={chain.id}>
+                {chain.name}
+              </option>
+            ))}
+          </select>
+          <div className="mt-2 flex items-center">
+            {destChain && (
+              <div className="flex items-center space-x-2">
+                <span>Selected:</span>
+                {(() => {
+                  const chain = CHAINS.find((c) => c.id.toString() === destChain)
+                  if (chain) {
+                    const ChainLogo = chain.logo
+                    return (
+                      <>
+                        <ChainLogo className="h-6 w-6" />
+                        <span>{chain.name}</span>
+                      </>
+                    )
+                  }
+                  return null
+                })()}
               </div>
             )}
           </div>
-        )}
+        </div>
 
-        {directBridgeFailed && (
-          <div className="mt-4">
-            <p className="text-sm text-center mb-2">Having trouble with direct bridging? Try Stargate instead:</p>
-            <StargateRedirectButton
-              destinationChainId={destinationChain ? Number.parseInt(destinationChain) : undefined}
-              amount={amount || "0.01"}
-              className="bg-purple-600 hover:bg-purple-700"
-            />
+        <div className="space-y-2">
+          <Label htmlFor="amount">Amount</Label>
+          <Input
+            id="amount"
+            type="text"
+            placeholder="0.0"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            className="bg-gray-800 border-gray-700"
+          />
+        </div>
+
+        <div className="space-y-1 text-sm">
+          <div className="flex justify-between">
+            <span className="text-gray-400">Bridge Fee:</span>
+            <span>~0.001 ETH</span>
           </div>
-        )}
-      </CardContent>
-    </Card>
+          <div className="flex justify-between">
+            <span className="text-gray-400">Estimated Time:</span>
+            <span>~15 minutes</span>
+          </div>
+        </div>
+
+        <Button
+          type="submit"
+          className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <span className="flex items-center">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Processing...
+            </span>
+          ) : isConnected ? (
+            "Bridge Assets"
+          ) : (
+            "Connect Wallet"
+          )}
+        </Button>
+      </form>
+    </div>
   )
 }

@@ -1,20 +1,73 @@
 "use client"
 
-import { useWallet } from "@/hooks/use-wallet"
+import { useState, useEffect } from "react"
+import { Button } from "@/components/ui/button"
 
 export default function WalletButton() {
-  const { address, isConnected, connect, disconnect, isMetaMaskAvailable } = useWallet()
+  const [isConnected, setIsConnected] = useState(false)
+  const [address, setAddress] = useState<string | null>(null)
+  const [mounted, setMounted] = useState(false)
 
-  if (!isMetaMaskAvailable) {
+  useEffect(() => {
+    setMounted(true)
+
+    if (typeof window !== "undefined" && window.ethereum) {
+      const checkConnection = async () => {
+        try {
+          const accounts = await window.ethereum.request({ method: "eth_accounts" })
+          if (accounts.length > 0) {
+            setAddress(accounts[0])
+            setIsConnected(true)
+          }
+        } catch (error) {
+          console.error("Error checking wallet connection:", error)
+        }
+      }
+
+      checkConnection()
+
+      window.ethereum.on("accountsChanged", (accounts: string[]) => {
+        if (accounts.length === 0) {
+          setAddress(null)
+          setIsConnected(false)
+        } else {
+          setAddress(accounts[0])
+          setIsConnected(true)
+        }
+      })
+
+      return () => {
+        window.ethereum.removeAllListeners("accountsChanged")
+      }
+    }
+  }, [])
+
+  const connectWallet = async () => {
+    if (typeof window !== "undefined" && window.ethereum) {
+      try {
+        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" })
+        if (accounts.length > 0) {
+          setAddress(accounts[0])
+          setIsConnected(true)
+        }
+      } catch (error) {
+        console.error("Error connecting wallet:", error)
+      }
+    } else {
+      alert("Please install MetaMask to use this feature")
+    }
+  }
+
+  const disconnectWallet = () => {
+    setAddress(null)
+    setIsConnected(false)
+  }
+
+  if (!mounted) {
     return (
-      <a
-        href="https://metamask.io/download/"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition-colors"
-      >
-        Install MetaMask
-      </a>
+      <Button variant="outline" className="bg-gray-800 border-gray-700">
+        Connect Wallet
+      </Button>
     )
   }
 
@@ -24,19 +77,26 @@ export default function WalletButton() {
         <span className="text-sm hidden md:inline-block">
           {address.slice(0, 6)}...{address.slice(-4)}
         </span>
-        <button
-          onClick={disconnect}
-          className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-800 transition-colors"
-        >
+        <Button onClick={disconnectWallet} variant="outline" className="bg-gray-800 border-gray-700 hover:bg-gray-700">
           Disconnect
-        </button>
+        </Button>
       </div>
     )
   }
 
   return (
-    <button onClick={connect} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+    <Button
+      onClick={connectWallet}
+      className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+    >
       Connect Wallet
-    </button>
+    </Button>
   )
+}
+
+// Add TypeScript support for window.ethereum
+declare global {
+  interface Window {
+    ethereum: any
+  }
 }

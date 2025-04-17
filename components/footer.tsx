@@ -1,12 +1,13 @@
 import Link from "next/link"
+import LayerLeapLogo from "./logos/layerleap-logo"
 
 export default function Footer() {
   return (
-    <footer className="border-t border-gray-800">
+    <footer className="border-t border-gray-800 bg-black">
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="space-y-4">
-            <h3 className="text-lg font-bold">LayerLeap</h3>
+            <LayerLeapLogo />
             <p className="text-sm text-gray-400">
               The cross-chain bridge for seamless asset transfers across multiple blockchains.
             </p>
@@ -18,6 +19,11 @@ export default function Footer() {
               <li>
                 <Link href="/bridge" className="text-gray-400 hover:text-white">
                   Bridge
+                </Link>
+              </li>
+              <li>
+                <Link href="#" className="text-gray-400 hover:text-white">
+                  Documentation
                 </Link>
               </li>
             </ul>

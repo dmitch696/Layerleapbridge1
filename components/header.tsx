@@ -1,14 +1,13 @@
 import Link from "next/link"
-import WalletButtonWrapper from "./wallet-button-wrapper"
+import WalletButton from "./wallet-button"
+import LayerLeapLogo from "./logos/layerleap-logo"
 
 export default function Header() {
   return (
-    <header className="border-b border-gray-800">
+    <header className="border-b border-gray-800 bg-black">
       <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-        <Link href="/" className="flex items-center space-x-2">
-          <span className="text-2xl font-bold bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
-            LayerLeap
-          </span>
+        <Link href="/" className="flex items-center">
+          <LayerLeapLogo />
         </Link>
 
         <nav className="hidden md:flex items-center space-x-6">
@@ -23,7 +22,7 @@ export default function Header() {
           </Link>
         </nav>
 
-        <WalletButtonWrapper />
+        <WalletButton />
       </div>
     </header>
   )

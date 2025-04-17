@@ -1,33 +1,37 @@
 "use client"
 
 import type React from "react"
+
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input" // Added Input component
+import { Input } from "@/components/ui/input"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2 } from "lucide-react"
 import { isConnectedToOptimism, switchToOptimism } from "@/utils/network-utils"
-import { CHAINS, getHyperlaneBridgeFee, bridgeETH, isChainSupported } from "@/services/hyperlane-bridge-service"
+import StargateBridgeButton from "./stargate-bridge-button"
 
-export default function HyperlaneBridge() {
+// Chain data for UI
+const CHAINS = [
+  { id: 1, name: "Ethereum", logo: "🔷" },
+  { id: 42161, name: "Arbitrum", logo: "🔶" },
+  { id: 137, name: "Polygon", logo: "🟣" },
+  { id: 8453, name: "Base", logo: "🔵" },
+  { id: 43114, name: "Avalanche", logo: "❄️" },
+]
+
+export default function SimplifiedBridge() {
   const { toast } = useToast()
   const [destinationChain, setDestinationChain] = useState("")
-  const [amount, setAmount] = useState("0.01") // Default amount
+  const [amount, setAmount] = useState("0.01")
   const [isLoading, setIsLoading] = useState(false)
   const [isCheckingNetwork, setIsCheckingNetwork] = useState(true)
-  const [isCheckingSupport, setIsCheckingSupport] = useState(false)
-  const [txHash, setTxHash] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
   const [isConnected, setIsConnected] = useState(false)
   const [isOnOptimism, setIsOnOptimism] = useState(false)
   const [web3, setWeb3] = useState<any>(null)
   const [account, setAccount] = useState<string | null>(null)
   const [balance, setBalance] = useState<string | null>(null)
-  const [fee, setFee] = useState<string | null>(null)
-  const [supportedChains, setSupportedChains] = useState<Record<number, boolean>>({})
-  const [debugInfo, setDebugInfo] = useState<any>(null)
 
   // Initialize Web3 when component mounts
   useEffect(() => {
@@ -128,53 +132,6 @@ export default function HyperlaneBridge() {
     }
   }, [web3, account])
 
-  // Check which chains are supported
-  useEffect(() => {
-    async function checkSupportedChains() {
-      if (!isConnected) return
-
-      setIsCheckingSupport(true)
-      const supported: Record<number, boolean> = {}
-
-      for (const chain of CHAINS) {
-        supported[chain.id] = await isChainSupported(chain.id)
-      }
-
-      console.log("Supported chains:", supported)
-      setSupportedChains(supported)
-      setIsCheckingSupport(false)
-    }
-
-    checkSupportedChains()
-  }, [isConnected, isOnOptimism])
-
-  // Update fee when destination chain or amount changes
-  useEffect(() => {
-    async function updateFee() {
-      if (destinationChain && account && amount) {
-        try {
-          const result = await getHyperlaneBridgeFee(
-            Number.parseInt(destinationChain),
-            account,
-            amount, // Use the user-specified amount
-          )
-
-          if (result.success && result.fee) {
-            setFee(result.fee)
-          } else if (result.error) {
-            console.warn("Fee estimation error:", result.error)
-          }
-        } catch (error) {
-          console.error("Error updating fee:", error)
-        }
-      } else {
-        setFee(null)
-      }
-    }
-
-    updateFee()
-  }, [destinationChain, account, amount]) // Added amount as a dependency
-
   const connectWallet = async () => {
     if (!window.ethereum) {
       toast({
@@ -208,19 +165,11 @@ export default function HyperlaneBridge() {
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handlePrepare = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    setError(null)
-    setTxHash(null)
-    setDebugInfo(null)
 
     try {
-      // Check if web3 is initialized
-      if (!web3) {
-        throw new Error("Web3 is not initialized. Please refresh the page and try again.")
-      }
-
       // Check if connected
       if (!isConnected) {
         await connectWallet()
@@ -250,59 +199,47 @@ export default function HyperlaneBridge() {
       }
 
       // Validate inputs
-      if (!destinationChain) {
-        setError("Please select a destination chain")
-        setIsLoading(false)
-        return
-      }
-
-      if (!amount || Number.parseFloat(amount) <= 0) {
-        setError("Please enter a valid amount")
-        setIsLoading(false)
-        return
-      }
-
-      // Get current account
-      const accounts = await window.ethereum.request({ method: "eth_accounts" })
-      if (accounts.length === 0) {
-        setError("No wallet connected")
-        setIsLoading(false)
-        return
-      }
-
-      // Check if destination chain is supported
-      const destChainId = Number.parseInt(destinationChain)
-      if (!supportedChains[destChainId]) {
-        setError(
-          `Destination chain ${CHAINS.find((c) => c.id === destChainId)?.name || destChainId} is not supported by Hyperlane.`,
-        )
-        setIsLoading(false)
-        return
-      }
-
-      // Execute bridge with user-specified amount
-      const result = await bridgeETH(destChainId, accounts[0], amount)
-
-      if (result.success && result.txHash) {
-        setTxHash(result.txHash)
+      if (!destinationChain || !amount) {
         toast({
-          title: "Bridge Transaction Submitted",
-          description: `Your ${amount} ETH is being bridged. This may take 10-30 minutes to complete.`,
-        })
-      } else {
-        setError(result.error || "Bridge transaction failed")
-        setDebugInfo(result.debugInfo)
-        toast({
-          title: "Bridge Failed",
-          description: result.error || "Failed to bridge assets",
+          title: "Missing Information",
+          description: "Please select a destination chain and enter an amount.",
           variant: "destructive",
         })
+        setIsLoading(false)
+        return
       }
-    } catch (err: any) {
-      setError(err.message)
+
+      const amountNum = Number.parseFloat(amount)
+      if (isNaN(amountNum) || amountNum <= 0) {
+        toast({
+          title: "Invalid Amount",
+          description: "Please enter a valid amount greater than 0.",
+          variant: "destructive",
+        })
+        setIsLoading(false)
+        return
+      }
+
+      // Check if we have enough balance
+      if (balance && Number(balance) < amountNum) {
+        toast({
+          title: "Insufficient Balance",
+          description: `You need at least ${amountNum} ETH but have ${Number(balance).toFixed(4)} ETH.`,
+          variant: "destructive",
+        })
+        setIsLoading(false)
+        return
+      }
+
+      // Show success message
+      toast({
+        title: "Ready to Bridge",
+        description: "Click the button below to continue to Stargate Finance.",
+      })
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: err.message,
+        description: error.message || "An unknown error occurred",
         variant: "destructive",
       })
     } finally {
@@ -313,10 +250,10 @@ export default function HyperlaneBridge() {
   return (
     <Card className="bg-gray-800 border-gray-700">
       <CardHeader>
-        <CardTitle className="text-xl">Hyperlane Bridge</CardTitle>
+        <CardTitle className="text-xl">Bridge Your Assets</CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handlePrepare} className="space-y-4">
           <div className="p-3 bg-blue-900/30 rounded mb-4">
             <div className="flex items-center gap-2">
               <span className="text-red-400 font-medium">Source:</span>
@@ -326,7 +263,7 @@ export default function HyperlaneBridge() {
               </span>
             </div>
             <p className="text-xs text-gray-400 mt-1">
-              This bridge uses the Hyperlane protocol for direct bridging of assets
+              Bridge your assets from Optimism to other chains using Stargate Finance
             </p>
           </div>
 
@@ -338,49 +275,30 @@ export default function HyperlaneBridge() {
               value={destinationChain}
               onChange={(e) => setDestinationChain(e.target.value)}
               required
-              disabled={isCheckingSupport}
             >
               <option value="">Select destination chain</option>
               {CHAINS.map((chain) => (
-                <option key={chain.id} value={chain.id} disabled={isConnected && supportedChains[chain.id] === false}>
+                <option key={chain.id} value={chain.id}>
                   {chain.logo} {chain.name}
-                  {isConnected && supportedChains[chain.id] === false ? " (Not Supported)" : ""}
                 </option>
               ))}
             </select>
-            {isCheckingSupport && (
-              <div className="flex items-center text-xs text-gray-400">
-                <Loader2 className="h-3 w-3 mr-2 animate-spin" />
-                Checking supported chains...
-              </div>
-            )}
           </div>
 
-          {/* Added amount input field */}
           <div className="space-y-2">
             <Label htmlFor="amount">Amount (ETH)</Label>
             <Input
               id="amount"
               type="number"
-              step="0.0001"
-              min="0.0001"
+              step="0.001"
+              min="0.001"
               className="bg-gray-700 border-gray-600"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="0.01"
               required
             />
-          </div>
-
-          <div className="p-3 bg-gray-700 rounded">
-            <p className="text-sm font-medium">Transaction Details:</p>
-            <p className="text-sm">• Amount: {amount} ETH</p>
-            {fee && <p className="text-sm">• Bridge Fee: {fee} ETH</p>}
-            {fee && <p className="text-sm">• Total: {(Number(amount) + Number(fee)).toFixed(6)} ETH</p>}
-            {balance && <p className="text-sm">• Your Balance: {Number(balance).toFixed(4)} ETH</p>}
-            <p className="text-xs text-gray-400 mt-1">
-              Base fee is 0.0003 ETH plus gas costs for the destination chain
-            </p>
+            {balance && <p className="text-xs text-gray-400">Your balance: {Number(balance).toFixed(4)} ETH</p>}
           </div>
 
           <Button type="submit" className="w-full" disabled={isLoading || isCheckingNetwork || !web3}>
@@ -396,55 +314,27 @@ export default function HyperlaneBridge() {
             ) : !isOnOptimism ? (
               "Switch to Optimism"
             ) : (
-              "Bridge via Hyperlane"
+              "Prepare Bridge Transaction"
             )}
           </Button>
+
+          {isConnected && isOnOptimism && destinationChain && (
+            <StargateBridgeButton
+              destinationChainId={Number.parseInt(destinationChain)}
+              amount={amount}
+              className="bg-purple-600 hover:bg-purple-700 mt-2"
+            />
+          )}
         </form>
 
-        {txHash && (
-          <div className="mt-4 p-3 bg-green-800/50 rounded">
-            <p className="font-medium">Transaction Submitted!</p>
-            <p className="text-sm break-all">Hash: {txHash}</p>
-            <a
-              href={`https://optimistic.etherscan.io/tx/${txHash}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-400 hover:underline text-sm"
-            >
-              View on Optimism Explorer
-            </a>
-          </div>
-        )}
-
-        {error && (
-          <div className="mt-4 p-3 bg-red-800/50 rounded">
-            <p className="font-medium">Error</p>
-            <p className="text-sm break-all">{error}</p>
-
-            {debugInfo && (
-              <details className="mt-2 text-xs">
-                <summary className="cursor-pointer text-gray-400">Show Debug Info</summary>
-                <pre className="mt-2 p-2 bg-gray-900 rounded overflow-auto max-h-40">
-                  {JSON.stringify(debugInfo, null, 2)}
-                </pre>
-              </details>
-            )}
-          </div>
-        )}
-
         <div className="mt-6 p-3 bg-gray-700 rounded text-sm">
-          <h3 className="font-medium mb-2">About Hyperlane</h3>
-          <p className="mb-3">
-            Hyperlane is an interoperability protocol that allows secure communication between blockchains. It uses a
-            modular security model where validators attest to messages on the source chain, and relayers deliver these
-            messages to the destination chain.
-          </p>
-          <p>Key features:</p>
+          <h3 className="font-medium mb-2">Why use Stargate Finance?</h3>
           <ul className="list-disc pl-5 space-y-1 text-gray-300">
-            <li>Permissionless interchain messaging</li>
-            <li>Customizable security model</li>
-            <li>Sovereign consensus</li>
-            <li>Developer-friendly interfaces</li>
+            <li>Reliable cross-chain bridging with high security</li>
+            <li>Support for multiple chains and tokens</li>
+            <li>User-friendly interface with clear fee structure</li>
+            <li>Fast transaction processing</li>
+            <li>Built on top of LayerZero protocol</li>
           </ul>
         </div>
       </CardContent>

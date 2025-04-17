@@ -5,6 +5,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2 } from "lucide-react"
 import { isConnectedToOptimism, switchToOptimism } from "@/utils/network-utils"
@@ -60,6 +61,7 @@ const LZ_ENDPOINT_ABI = [
 export default function LayerZeroBridge() {
   const { toast } = useToast()
   const [destinationChain, setDestinationChain] = useState("")
+  const [amount, setAmount] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [isCheckingNetwork, setIsCheckingNetwork] = useState(true)
   const [txHash, setTxHash] = useState<string | null>(null)
@@ -71,6 +73,7 @@ export default function LayerZeroBridge() {
   const [debugInfo, setDebugInfo] = useState<any>(null)
   const [account, setAccount] = useState<string | null>(null) // Add account state
   const [balance, setBalance] = useState<string | null>(null)
+  const [fee, setFee] = useState<string | null>(null)
 
   // Initialize Web3 when component mounts
   useEffect(() => {
@@ -173,6 +176,71 @@ export default function LayerZeroBridge() {
       }
     }
   }, [web3, account])
+
+  // Update fee when inputs change
+  useEffect(() => {
+    async function updateFee() {
+      if (destinationChain && account && amount && Number(amount) > 0) {
+        try {
+          // Get the LayerZero chain ID for the destination
+          const destChain = CHAINS.find((chain) => chain.id.toString() === destinationChain)
+          if (!destChain) return
+
+          const lzDestChainId = destChain.lzChainId
+
+          // Create LayerZero endpoint contract instance
+          const lzEndpoint = new web3.eth.Contract(LZ_ENDPOINT_ABI, LZ_ENDPOINT_ADDRESS)
+
+          // Properly encode the recipient address for LayerZero
+          const encodedRecipient = encodeAddressForLayerZero(account)
+
+          // Create the payload - for a simple ETH transfer, we just encode the amount
+          const amountWei = web3.utils.toWei(amount, "ether")
+          const payload = web3.eth.abi.encodeParameter("uint256", amountWei)
+
+          // Create adapter parameters with a higher gas limit
+          const adapterParams = createDefaultAdapterParams(500000) // 500k gas limit
+
+          // Zero address for ZRO token payments (we're not using ZRO)
+          const zeroAddress = "0x0000000000000000000000000000000000000000"
+
+          // Estimate the fee
+          const [nativeFee, zroFee] = await lzEndpoint.methods
+            .estimateFees(
+              lzDestChainId,
+              encodedRecipient,
+              payload,
+              false, // payInZRO - we're paying in native token
+              adapterParams,
+            )
+            .call()
+
+          // Use a fixed base fee of 0.0003 ETH
+          const baseFee = web3.utils.toWei("0.0003", "ether")
+
+          // Use the higher of the estimated fee or our base fee
+          const finalFee = web3.utils.toBN(nativeFee).gt(web3.utils.toBN(baseFee))
+            ? web3.utils.fromWei(nativeFee, "ether")
+            : "0.0003"
+
+          // Add a 10% buffer
+          const feeWithBuffer = (Number(finalFee) * 1.1).toFixed(6)
+
+          setFee(feeWithBuffer)
+        } catch (error) {
+          console.error("Fee estimation error:", error)
+          // Fallback to fixed fee if estimation fails
+          setFee("0.00033") // 0.0003 + 10% buffer
+        }
+      } else {
+        setFee(null)
+      }
+    }
+
+    if (web3 && account && destinationChain && amount) {
+      updateFee()
+    }
+  }, [web3, account, destinationChain, amount])
 
   const connectWallet = async () => {
     if (!window.ethereum) {
@@ -290,6 +358,12 @@ export default function LayerZeroBridge() {
         return
       }
 
+      if (!amount || Number(amount) <= 0) {
+        setError("Please enter a valid amount greater than 0")
+        setIsLoading(false)
+        return
+      }
+
       // Get current account
       const accounts = await window.ethereum.request({ method: "eth_accounts" })
       if (accounts.length === 0) {
@@ -307,12 +381,8 @@ export default function LayerZeroBridge() {
       }
       const lzDestChainId = destChain.lzChainId
 
-      // Use a minimal test amount for safety
-      const testAmount = "0.0001" // 0.0001 ETH
-      console.log(`Using test amount: ${testAmount} ETH for safety`)
-
       // Convert amount to wei
-      const amountWei = web3.utils.toWei(testAmount, "ether")
+      const amountWei = web3.utils.toWei(amount, "ether")
 
       // Create LayerZero endpoint contract instance
       const lzEndpoint = new web3.eth.Contract(LZ_ENDPOINT_ABI, LZ_ENDPOINT_ADDRESS)
@@ -338,18 +408,18 @@ export default function LayerZeroBridge() {
       const balanceEth = web3.utils.fromWei(balanceWei, "ether")
       console.log(`Account balance: ${balanceEth} ETH`)
 
-      // Use a fixed fee to avoid estimation issues
-      const fixedFeeEth = 0.001 // 0.001 ETH
-      const fixedFeeWei = web3.utils.toWei(fixedFeeEth.toString(), "ether")
+      // Use the calculated fee or fallback to a fixed fee
+      const feeEth = fee || "0.00033" // 0.0003 + 10% buffer
+      const feeWei = web3.utils.toWei(feeEth, "ether")
 
       // Calculate total value to send (amount + fee)
-      const amountEth = Number(web3.utils.fromWei(amountWei, "ether"))
-      const totalEth = amountEth + fixedFeeEth
+      const amountEth = Number(amount)
+      const totalEth = amountEth + Number(feeEth)
       const totalWei = web3.utils.toWei(totalEth.toString(), "ether")
 
       console.log("Transaction details:")
       console.log(`- Amount: ${amountEth} ETH`)
-      console.log(`- Fee: ${fixedFeeEth} ETH`)
+      console.log(`- Fee: ${feeEth} ETH`)
       console.log(`- Total: ${totalEth} ETH`)
       console.log(`- Balance: ${balanceEth} ETH`)
 
@@ -383,7 +453,7 @@ export default function LayerZeroBridge() {
       // Show confirmation with detailed info
       toast({
         title: "Preparing Transaction",
-        description: `Bridging ${testAmount} ETH to ${destChain.name} with a fee of ${fixedFeeEth} ETH`,
+        description: `Bridging ${amount} ETH to ${destChain.name} with a fee of ${feeEth} ETH`,
       })
 
       // Send the transaction
@@ -409,7 +479,7 @@ export default function LayerZeroBridge() {
 
       toast({
         title: "Bridge Transaction Submitted",
-        description: "Your test amount (0.0001 ETH) is being bridged. This may take 10-30 minutes to complete.",
+        description: `Your ${amount} ETH is being bridged. This may take 10-30 minutes to complete.`,
       })
     } catch (err: any) {
       console.error("Bridge error:", err)
@@ -471,15 +541,28 @@ export default function LayerZeroBridge() {
             </select>
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="amount">Amount (ETH)</Label>
+            <Input
+              id="amount"
+              type="number"
+              step="0.0001"
+              min="0.0001"
+              className="bg-gray-700 border-gray-600"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="0.01"
+              required
+            />
+          </div>
+
           <div className="p-3 bg-gray-700 rounded">
-            <p className="text-sm font-medium">Test Transaction Details:</p>
-            <p className="text-sm">• Amount: 0.0001 ETH</p>
-            <p className="text-sm">• Fee: 0.001 ETH</p>
-            <p className="text-sm">• Total: 0.0011 ETH</p>
+            <p className="text-sm font-medium">Transaction Details:</p>
+            {amount && <p className="text-sm">• Amount: {amount} ETH</p>}
+            {fee && <p className="text-sm">• Fee: {fee} ETH</p>}
+            {amount && fee && <p className="text-sm">• Total: {(Number(amount) + Number(fee)).toFixed(6)} ETH</p>}
             {balance && <p className="text-sm">• Your Balance: {Number(balance).toFixed(4)} ETH</p>}
-            <p className="text-xs text-gray-400 mt-1">
-              For safety, we're using a minimal test amount with proper address encoding
-            </p>
+            <p className="text-xs text-gray-400 mt-1">Base fee is 0.0003 ETH with a small buffer added for safety</p>
           </div>
 
           <Button type="submit" className="w-full" disabled={isLoading || isCheckingNetwork || !web3}>
@@ -536,7 +619,7 @@ export default function LayerZeroBridge() {
             <p className="text-sm text-center mb-2">Direct bridge failed. Try using Stargate Finance instead:</p>
             <StargateRedirectButton
               destinationChainId={destinationChain ? Number.parseInt(destinationChain) : undefined}
-              amount="0.0001"
+              amount={amount || "0.01"}
               className="bg-purple-600 hover:bg-purple-700"
             />
           </div>
