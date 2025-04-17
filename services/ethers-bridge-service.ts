@@ -81,12 +81,13 @@ export async function isConnectedToOptimism(): Promise<boolean> {
   }
 
   try {
-    // Method 1: Direct provider request for chainId
+    // Method 1: Direct provider request for chainId - most reliable method
     const chainIdHex = await window.ethereum.request({ method: "eth_chainId" })
     const chainId = Number.parseInt(chainIdHex, 16)
-    console.log("Chain ID from direct provider request:", chainId)
+    console.log("Chain ID from direct provider request:", chainId, "Hex:", chainIdHex)
 
     if (chainId === 10) {
+      console.log("✅ Connected to Optimism (chainId: 10)")
       return true
     }
 
@@ -96,11 +97,29 @@ export async function isConnectedToOptimism(): Promise<boolean> {
       const web3 = new Web3(window.ethereum)
       const networkId = await web3.eth.getChainId()
       console.log("Network ID from Web3.js:", networkId)
-      return networkId === 10
+
+      if (networkId === 10) {
+        console.log("✅ Connected to Optimism (Web3 chainId: 10)")
+        return true
+      }
     } catch (web3Error) {
       console.error("Error using Web3.js for network detection:", web3Error)
     }
 
+    // Method 3: Try network version as a last resort
+    try {
+      const networkVersion = await window.ethereum.request({ method: "net_version" })
+      console.log("Network version:", networkVersion)
+
+      if (networkVersion === "10") {
+        console.log("✅ Connected to Optimism (networkVersion: 10)")
+        return true
+      }
+    } catch (versionError) {
+      console.error("Error getting network version:", versionError)
+    }
+
+    console.log("❌ Not connected to Optimism - detected chain ID:", chainId)
     return false
   } catch (error) {
     console.error("Error checking network:", error)
@@ -272,19 +291,14 @@ export async function bridgeETH(
     const accounts = await web3.eth.getAccounts()
     const account = accounts[0]
 
-    // Check if on Optimism
-    const chainId = await web3.eth.getChainId()
-    if (chainId !== 10) {
-      throw new Error("Please connect to Optimism network")
-    }
+    // Check if on Optimism - use our more robust function
+    const onOptimism = await isConnectedToOptimism()
+    if (!onOptimism) {
+      // Get the current chain ID for debugging
+      const chainId = await web3.eth.getChainId()
+      const chainIdHex = await window.ethereum.request({ method: "eth_chainId" })
 
-    // Create contract instance
-    const bridge = new web3.eth.Contract(BRIDGE_ABI as any, BRIDGE_CONTRACT)
-
-    // Verify the chain is supported
-    const lzId = await bridge.methods.chainToLzId(destinationChainId).call()
-    if (lzId === "0") {
-      throw new Error(`Destination chain ${destinationChainId} is not supported`)
+      throw new Error(`Please connect to Optimism network (detected chainId: ${chainId}, hex: ${chainIdHex})`)
     }
 
     // Use a minimal test amount for safety
@@ -309,6 +323,9 @@ export async function bridgeETH(
       fee: feeResult.fee + " ETH",
       total: totalEth.toFixed(6) + " ETH",
     })
+
+    // Create contract instance
+    const bridge = new web3.eth.Contract(BRIDGE_ABI as any, BRIDGE_CONTRACT)
 
     // Estimate gas
     let gasEstimate

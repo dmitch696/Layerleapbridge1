@@ -49,26 +49,16 @@ export default function BridgeForm() {
           setIsConnected(connected)
 
           if (connected) {
-            // Check if on Optimism using multiple methods
-            try {
-              // Method 1: Direct chainId check
+            // Check if on Optimism using our improved function
+            const onOptimism = await isConnectedToOptimism()
+            console.log("isConnectedToOptimism result:", onOptimism)
+            setIsOnOptimism(onOptimism)
+
+            // If not on Optimism, log detailed chain info for debugging
+            if (!onOptimism) {
               const chainIdHex = await window.ethereum.request({ method: "eth_chainId" })
-              const chainId = Number.parseInt(chainIdHex, 16)
-              console.log("Current chain ID:", chainId)
-
-              if (chainId === 10) {
-                setIsOnOptimism(true)
-                setIsCheckingNetwork(false)
-                return
-              }
-
-              // Method 2: Use our helper function as backup
-              const onOptimism = await isConnectedToOptimism()
-              console.log("isConnectedToOptimism result:", onOptimism)
-              setIsOnOptimism(onOptimism)
-            } catch (networkError) {
-              console.error("Error checking network:", networkError)
-              setIsOnOptimism(false)
+              console.log("Current chain ID hex:", chainIdHex)
+              console.log("Expected Optimism chain ID hex: 0xA")
             }
           }
         } catch (error) {
@@ -86,10 +76,9 @@ export default function BridgeForm() {
       const handleAccountsChanged = async (accounts: string[]) => {
         setIsConnected(accounts.length > 0)
         if (accounts.length > 0) {
-          // Check if on Optimism
-          const chainIdHex = await window.ethereum.request({ method: "eth_chainId" })
-          const chainId = Number.parseInt(chainIdHex, 16)
-          setIsOnOptimism(chainId === 10)
+          // Check if on Optimism using our improved function
+          const onOptimism = await isConnectedToOptimism()
+          setIsOnOptimism(onOptimism)
         } else {
           setIsOnOptimism(false)
         }
@@ -97,8 +86,12 @@ export default function BridgeForm() {
 
       const handleChainChanged = async (chainIdHex: string) => {
         const chainId = Number.parseInt(chainIdHex, 16)
-        console.log("Chain changed to:", chainId)
-        setIsOnOptimism(chainId === 10)
+        console.log("Chain changed to:", chainId, "Hex:", chainIdHex)
+
+        // Check if the new chain is Optimism
+        const onOptimism = chainId === 10
+        console.log("Is Optimism:", onOptimism)
+        setIsOnOptimism(onOptimism)
       }
 
       window.ethereum.on("accountsChanged", handleAccountsChanged)
