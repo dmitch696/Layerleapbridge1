@@ -292,14 +292,18 @@ export default function LayerZeroBridge() {
       // Create adapter parameters with a fixed gas limit
       const adapterParams = createDefaultAdapterParams(300000) // 300k gas limit
 
-      // Estimate the fee
+      // Zero address for ZRO token payments (we're not using ZRO)
+      const zeroAddress = "0x0000000000000000000000000000000000000000"
+
+      // Estimate the fee - fixing the parameter validation errors
       const [nativeFee, zroFee] = await lzEndpoint.methods
         .estimateFees(
           lzDestChainId,
           encodedRecipient,
           payload,
-          false, // payInZRO - we're paying in native token
-          adapterParams,
+          account, // refund address - must be a valid address
+          zeroAddress, // zroPaymentAddress - must be a valid address
+          adapterParams, // adapter params - must be provided
         )
         .call()
 
@@ -321,7 +325,7 @@ export default function LayerZeroBridge() {
           encodedRecipient,
           payload,
           account, // refund address (same as sender)
-          "0x0000000000000000000000000000000000000000", // zroPaymentAddress - we're not using ZRO token
+          zeroAddress, // zroPaymentAddress - we're not using ZRO token
           adapterParams,
         )
         .send({
