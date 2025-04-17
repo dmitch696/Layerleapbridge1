@@ -269,6 +269,7 @@ export default function OptimizedBridge() {
     }
   }
 
+  // Update the handleSubmit function to handle network switching
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)

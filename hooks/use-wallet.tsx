@@ -98,7 +98,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     [isMetaMaskAvailable, isConnected],
   )
 
-  // Listen for account and chain changes
+  // Update the useEffect hook to check the network
   useEffect(() => {
     if (!isMetaMaskAvailable) return
 
@@ -130,7 +130,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
             // Get current chain ID
             window.ethereum.request({ method: "eth_chainId" }).then((chainIdHex: string) => {
-              setChainId(Number.parseInt(chainIdHex, 16))
+              const chainId = Number.parseInt(chainIdHex, 16)
+              setChainId(chainId)
             })
           }
         })
