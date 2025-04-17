@@ -122,18 +122,10 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
       // Check if already connected
       window.ethereum
-        .request({ method: "eth_accounts" })
-        .then((accounts: string[]) => {
-          if (accounts.length > 0) {
-            setAddress(accounts[0])
-            setIsConnected(true)
-
-            // Get current chain ID
-            window.ethereum.request({ method: "eth_chainId" }).then((chainIdHex: string) => {
-              const chainId = Number.parseInt(chainIdHex, 16)
-              setChainId(chainId)
-            })
-          }
+        .request({ method: "eth_chainId" })
+        .then((chainIdHex: string) => {
+          const chainId = Number.parseInt(chainIdHex, 16)
+          setChainId(chainId)
         })
         .catch((error: any) => {
           console.error("Error checking accounts:", error)
