@@ -49,9 +49,27 @@ export default function BridgeForm() {
           setIsConnected(connected)
 
           if (connected) {
-            // Check if on Optimism
-            const onOptimism = await isConnectedToOptimism()
-            setIsOnOptimism(onOptimism)
+            // Check if on Optimism using multiple methods
+            try {
+              // Method 1: Direct chainId check
+              const chainIdHex = await window.ethereum.request({ method: "eth_chainId" })
+              const chainId = Number.parseInt(chainIdHex, 16)
+              console.log("Current chain ID:", chainId)
+
+              if (chainId === 10) {
+                setIsOnOptimism(true)
+                setIsCheckingNetwork(false)
+                return
+              }
+
+              // Method 2: Use our helper function as backup
+              const onOptimism = await isConnectedToOptimism()
+              console.log("isConnectedToOptimism result:", onOptimism)
+              setIsOnOptimism(onOptimism)
+            } catch (networkError) {
+              console.error("Error checking network:", networkError)
+              setIsOnOptimism(false)
+            }
           }
         } catch (error) {
           console.error("Error checking wallet connection:", error)
@@ -65,27 +83,31 @@ export default function BridgeForm() {
 
     // Set up event listeners for account and chain changes
     if (window.ethereum) {
-      window.ethereum.on("accountsChanged", async (accounts: string[]) => {
+      const handleAccountsChanged = async (accounts: string[]) => {
         setIsConnected(accounts.length > 0)
         if (accounts.length > 0) {
-          const onOptimism = await isConnectedToOptimism()
-          setIsOnOptimism(onOptimism)
+          // Check if on Optimism
+          const chainIdHex = await window.ethereum.request({ method: "eth_chainId" })
+          const chainId = Number.parseInt(chainIdHex, 16)
+          setIsOnOptimism(chainId === 10)
         } else {
           setIsOnOptimism(false)
         }
-      })
+      }
 
-      window.ethereum.on("chainChanged", async () => {
-        const onOptimism = await isConnectedToOptimism()
-        setIsOnOptimism(onOptimism)
-      })
-    }
+      const handleChainChanged = async (chainIdHex: string) => {
+        const chainId = Number.parseInt(chainIdHex, 16)
+        console.log("Chain changed to:", chainId)
+        setIsOnOptimism(chainId === 10)
+      }
 
-    // Cleanup
-    return () => {
-      if (window.ethereum) {
-        window.ethereum.removeAllListeners("accountsChanged")
-        window.ethereum.removeAllListeners("chainChanged")
+      window.ethereum.on("accountsChanged", handleAccountsChanged)
+      window.ethereum.on("chainChanged", handleChainChanged)
+
+      // Cleanup
+      return () => {
+        window.ethereum.removeListener("accountsChanged", handleAccountsChanged)
+        window.ethereum.removeListener("chainChanged", handleChainChanged)
       }
     }
   }, [])
@@ -98,8 +120,16 @@ export default function BridgeForm() {
       setIsCheckingSupport(true)
       const supported: Record<number, boolean> = {}
 
+      // Default all chains to supported if we can't check
+      const defaultSupported = true
+
       for (const chain of CHAINS) {
-        supported[chain.id] = await isChainSupported(chain.id)
+        try {
+          supported[chain.id] = await isChainSupported(chain.id)
+        } catch (error) {
+          console.error(`Error checking support for chain ${chain.id}:`, error)
+          supported[chain.id] = defaultSupported
+        }
       }
 
       console.log("Supported chains:", supported)

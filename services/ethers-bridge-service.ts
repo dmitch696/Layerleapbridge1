@@ -65,17 +65,30 @@ export async function isConnectedToOptimism(): Promise<boolean> {
   }
 
   try {
-    // Load ethers dynamically
-    const { ethers } = await import("ethers")
+    // Try multiple methods to detect Optimism
 
-    // Create provider
-    const provider = new ethers.providers.Web3Provider(window.ethereum)
+    // Method 1: Direct provider request for chainId
+    const chainIdHex = await window.ethereum.request({ method: "eth_chainId" })
+    const chainId = Number.parseInt(chainIdHex, 16)
+    console.log("Chain ID from direct provider request:", chainId)
 
-    // Get network
-    const network = await provider.getNetwork()
+    if (chainId === 10) {
+      return true
+    }
 
-    // Check if on Optimism (chainId 10)
-    return network.chainId === 10
+    // Method 2: Use ethers.js as fallback
+    try {
+      const { ethers } = await import("ethers")
+      const provider = new ethers.providers.Web3Provider(window.ethereum)
+      const network = await provider.getNetwork()
+      console.log("Network from ethers:", network)
+
+      return network.chainId === 10
+    } catch (ethersError) {
+      console.error("Error using ethers for network detection:", ethersError)
+    }
+
+    return false
   } catch (error) {
     console.error("Error checking network:", error)
     return false
@@ -146,20 +159,32 @@ export async function isChainSupported(destinationChainId: number): Promise<bool
       return false
     }
 
-    // Load ethers dynamically
-    const { ethers } = await import("ethers")
+    // Hardcoded supported chains as fallback
+    const defaultSupportedChains = [1, 42161, 137, 8453, 43114]
 
-    // Create provider and contract instance
-    const provider = new ethers.providers.Web3Provider(window.ethereum)
-    const bridge = new ethers.Contract(BRIDGE_CONTRACT, BRIDGE_ABI, provider)
+    try {
+      // Load ethers dynamically
+      const { ethers } = await import("ethers")
 
-    // Check if the chain has a mapping
-    const lzId = await bridge.chainToLzId(destinationChainId)
+      // Create provider and contract instance
+      const provider = new ethers.providers.Web3Provider(window.ethereum)
+      const bridge = new ethers.Contract(BRIDGE_CONTRACT, BRIDGE_ABI, provider)
 
-    // If lzId is 0, the chain is not supported
-    return !lzId.isZero()
+      // Check if the chain has a mapping
+      const lzId = await bridge.chainToLzId(destinationChainId)
+      console.log(`Chain ${destinationChainId} LayerZero ID:`, lzId.toString())
+
+      // If lzId is 0, the chain is not supported
+      return !lzId.isZero()
+    } catch (contractError) {
+      console.error("Error checking chain support via contract:", contractError)
+
+      // Fall back to hardcoded values if contract call fails
+      console.log("Using fallback chain support list")
+      return defaultSupportedChains.includes(destinationChainId)
+    }
   } catch (error) {
-    console.error("Error checking chain support:", error)
+    console.error("Error in isChainSupported:", error)
     return false
   }
 }
