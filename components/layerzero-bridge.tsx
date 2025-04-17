@@ -211,6 +211,23 @@ export default function LayerZeroBridge() {
     return web3.eth.abi.encodeParameters(["uint16", "uint256"], [1, gasLimit])
   }
 
+  /**
+   * Safe method to add a percentage to a value without using toBN
+   * This avoids the "toBN is not a function" error
+   */
+  function addPercentage(value: string, percentage: number): string {
+    try {
+      // Try to parse as number and add percentage
+      const valueNum = Number(value)
+      const result = valueNum * (1 + percentage / 100)
+      return result.toString()
+    } catch (error) {
+      console.error("Error adding percentage:", error)
+      // Fallback: just return the original value
+      return value
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -300,8 +317,9 @@ export default function LayerZeroBridge() {
       const zeroAddress = "0x0000000000000000000000000000000000000000"
 
       // Try to estimate the fee, but use a fallback if it fails
-      let nativeFee
-      let feeWithBuffer
+      let nativeFeeWei
+      let totalValueWei
+
       try {
         console.log("Estimating fees with parameters:", {
           lzDestChainId,
@@ -324,13 +342,19 @@ export default function LayerZeroBridge() {
           .call()
 
         console.log("Estimated native fee:", web3.utils.fromWei(estimatedNativeFee, "ether"), "ETH")
-        nativeFee = estimatedNativeFee
+
+        // Add 50% buffer to the fee using simple math
+        const feeEth = Number(web3.utils.fromWei(estimatedNativeFee, "ether"))
+        const feeWithBufferEth = feeEth * 1.5
+        const feeWithBufferWei = web3.utils.toWei(feeWithBufferEth.toString(), "ether")
+
+        nativeFeeWei = feeWithBufferWei
       } catch (feeError) {
         console.error("Fee estimation failed:", feeError)
 
         // Use a fixed fee as fallback (0.001 ETH)
-        nativeFee = web3.utils.toWei("0.001", "ether")
-        console.log("Using fallback fee:", web3.utils.fromWei(nativeFee, "ether"), "ETH")
+        nativeFeeWei = web3.utils.toWei("0.001", "ether")
+        console.log("Using fallback fee:", web3.utils.fromWei(nativeFeeWei, "ether"), "ETH")
 
         // Log detailed error for debugging
         setDebugInfo({
@@ -347,13 +371,13 @@ export default function LayerZeroBridge() {
         })
       }
 
-      // Add a 50% buffer to the fee to ensure it's enough
-      feeWithBuffer = web3.utils.toBN(nativeFee).mul(web3.utils.toBN(150)).div(web3.utils.toBN(100))
-      console.log("Fee with buffer:", web3.utils.fromWei(feeWithBuffer.toString(), "ether"), "ETH")
+      // Calculate total value to send (amount + fee) using simple math
+      const amountEth = Number(web3.utils.fromWei(amountWei, "ether"))
+      const feeEth = Number(web3.utils.fromWei(nativeFeeWei, "ether"))
+      const totalEth = amountEth + feeEth
+      totalValueWei = web3.utils.toWei(totalEth.toString(), "ether")
 
-      // Calculate total value to send (amount + fee)
-      const totalValue = web3.utils.toBN(amountWei).add(feeWithBuffer)
-      console.log("Total value:", web3.utils.fromWei(totalValue.toString(), "ether"), "ETH")
+      console.log("Total value:", web3.utils.fromWei(totalValueWei, "ether"), "ETH")
 
       try {
         // Send the transaction
@@ -369,7 +393,7 @@ export default function LayerZeroBridge() {
           )
           .send({
             from: account,
-            value: totalValue.toString(),
+            value: totalValueWei,
             gas: 500000, // Fixed high gas limit
           })
 
@@ -395,7 +419,7 @@ export default function LayerZeroBridge() {
             lzDestChainId,
             encodedRecipient: encodedRecipient.substring(0, 42) + "...",
             payloadLength: payload.length,
-            value: web3.utils.fromWei(totalValue.toString(), "ether"),
+            value: web3.utils.fromWei(totalValueWei, "ether"),
             gas: 500000,
           },
         })
