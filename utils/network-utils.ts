@@ -29,7 +29,9 @@ export async function isConnectedToOptimism(): Promise<boolean> {
     // Method 2: Try using Web3 if available
     if (typeof window !== "undefined") {
       try {
-        const Web3 = (await import("web3")).default
+        const Web3Module = await import("web3")
+        // Handle both default export styles
+        const Web3 = Web3Module.default || Web3Module
         const web3 = new Web3(window.ethereum)
         const web3ChainId = await web3.eth.getChainId()
         console.log("Chain ID from Web3:", web3ChainId)

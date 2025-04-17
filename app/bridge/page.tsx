@@ -1,6 +1,6 @@
 import Header from "@/components/header"
 import Footer from "@/components/footer"
-import LayerZeroDirectBridge from "@/components/layerzero-direct-bridge"
+import LayerZeroBridge from "@/components/layerzero-bridge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default function BridgePage() {
@@ -14,7 +14,7 @@ export default function BridgePage() {
           <p className="text-gray-400 mb-8">Transfer your assets from Optimism to other chains</p>
 
           <div className="w-full max-w-md mb-8">
-            <LayerZeroDirectBridge />
+            <LayerZeroBridge />
           </div>
 
           <div className="w-full max-w-md">
