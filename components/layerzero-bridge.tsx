@@ -69,6 +69,8 @@ export default function LayerZeroBridge() {
   const [web3, setWeb3] = useState<any>(null)
   const [showStargateOption, setShowStargateOption] = useState(false)
   const [debugInfo, setDebugInfo] = useState<any>(null)
+  const [account, setAccount] = useState<string | null>(null) // Add account state
+  let feeWithBuffer
 
   // Initialize Web3 when component mounts
   useEffect(() => {
@@ -212,6 +214,21 @@ export default function LayerZeroBridge() {
   }
 
   /**
+   * Create more detailed adapter parameters for LayerZero
+   * This specifies gas parameters for the destination chain with more detail
+   */
+  function createDetailedAdapterParams(gasLimit = 500000, gasPrice = "1000000000"): string {
+    if (!web3) return "0x"
+
+    // Version 2 of adapter params contains more detailed gas parameters
+    // Format: [version, gasLimit, gasPrice]
+    return web3.eth.abi.encodeParameters(
+      ["uint16", "uint256", "uint256", "address"],
+      [2, gasLimit, gasPrice, account], // Version 2, gasLimit, gasPrice, refund address
+    )
+  }
+
+  /**
    * Safe method to add a percentage to a value without using toBN
    * This avoids the "toBN is not a function" error
    */
@@ -284,6 +301,7 @@ export default function LayerZeroBridge() {
         setIsLoading(false)
         return
       }
+      setAccount(accounts[0])
       const account = accounts[0]
 
       // Find the LayerZero chain ID for the destination
@@ -310,15 +328,16 @@ export default function LayerZeroBridge() {
       // Create the payload - for a simple ETH transfer, we just encode the amount
       const payload = web3.eth.abi.encodeParameter("uint256", amountWei)
 
-      // Create adapter parameters with a fixed gas limit
-      const adapterParams = createDefaultAdapterParams(300000) // 300k gas limit
+      // Create adapter parameters with a higher gas limit
+      const adapterParams = createDefaultAdapterParams(500000) // 500k gas limit
+      console.log("Adapter params:", adapterParams)
 
       // Zero address for ZRO token payments (we're not using ZRO)
       const zeroAddress = "0x0000000000000000000000000000000000000000"
 
       // Try to estimate the fee, but use a fallback if it fails
-      let nativeFeeWei
-      let totalValueWei
+      let nativeFee
+      let totalValue
 
       try {
         console.log("Estimating fees with parameters:", {
@@ -341,20 +360,34 @@ export default function LayerZeroBridge() {
           )
           .call()
 
-        console.log("Estimated native fee:", web3.utils.fromWei(estimatedNativeFee, "ether"), "ETH")
+        nativeFee = estimatedNativeFee
 
-        // Add 50% buffer to the fee using simple math
-        const feeEth = Number(web3.utils.fromWei(estimatedNativeFee, "ether"))
-        const feeWithBufferEth = feeEth * 1.5
-        const feeWithBufferWei = web3.utils.toWei(feeWithBufferEth.toString(), "ether")
+        console.log("Estimated native fee:", web3.utils.fromWei(nativeFee, "ether"), "ETH")
 
-        nativeFeeWei = feeWithBufferWei
+        // Add a 200% buffer to the fee to ensure it's enough (3x the estimated fee)
+        let feeWithBuffer
+        try {
+          // Try using toBN if available
+          feeWithBuffer = web3.utils.toBN(nativeFee).mul(web3.utils.toBN(300)).div(web3.utils.toBN(100))
+        } catch (bnError) {
+          // Fallback to simple math if toBN is not available
+          const feeEth = Number(web3.utils.fromWei(nativeFee, "ether"))
+          const feeWithBufferEth = feeEth * 3 // 3x the fee
+          feeWithBuffer = web3.utils.toWei(feeWithBufferEth.toString(), "ether")
+        }
+        console.log("Fee with 200% buffer:", web3.utils.fromWei(feeWithBuffer.toString(), "ether"), "ETH")
+
+        // Calculate total value to send (amount + fee) using simple math
+        const amountEth = Number(web3.utils.fromWei(amountWei, "ether"))
+        const feeEth = Number(web3.utils.fromWei(nativeFee, "ether"))
+        const totalEth = amountEth + feeEth
+        totalValue = web3.utils.toWei(totalEth.toString(), "ether")
       } catch (feeError) {
         console.error("Fee estimation failed:", feeError)
 
         // Use a fixed fee as fallback (0.001 ETH)
-        nativeFeeWei = web3.utils.toWei("0.001", "ether")
-        console.log("Using fallback fee:", web3.utils.fromWei(nativeFeeWei, "ether"), "ETH")
+        nativeFee = web3.utils.toWei("0.001", "ether")
+        console.log("Using fallback fee:", web3.utils.fromWei(nativeFee, "ether"), "ETH")
 
         // Log detailed error for debugging
         setDebugInfo({
@@ -373,11 +406,11 @@ export default function LayerZeroBridge() {
 
       // Calculate total value to send (amount + fee) using simple math
       const amountEth = Number(web3.utils.fromWei(amountWei, "ether"))
-      const feeEth = Number(web3.utils.fromWei(nativeFeeWei, "ether"))
-      const totalEth = amountEth + feeEth
-      totalValueWei = web3.utils.toWei(totalEth.toString(), "ether")
+      const feeWithBufferEth = Number(web3.utils.fromWei(feeWithBuffer.toString(), "ether"))
+      const totalEth = amountEth + feeWithBufferEth
+      totalValue = web3.utils.toWei(totalEth.toString(), "ether")
 
-      console.log("Total value:", web3.utils.fromWei(totalValueWei, "ether"), "ETH")
+      console.log("Total value:", web3.utils.fromWei(totalValue, "ether"), "ETH")
 
       try {
         // Send the transaction
@@ -393,8 +426,9 @@ export default function LayerZeroBridge() {
           )
           .send({
             from: account,
-            value: totalValueWei,
-            gas: 500000, // Fixed high gas limit
+            value: totalValue.toString(),
+            gas: 1000000, // Much higher gas limit for safety
+            gasPrice: await web3.eth.getGasPrice(), // Use current gas price
           })
 
         console.log("Transaction sent:", tx.transactionHash)
@@ -411,22 +445,34 @@ export default function LayerZeroBridge() {
         setError(`Transaction failed: ${txError.message || "Unknown error"}`)
         setShowStargateOption(true)
 
+        // Try to extract more detailed error information
+        let errorDetails = txError.toString()
+        if (txError.receipt) {
+          errorDetails = `Transaction reverted. Gas used: ${txError.receipt.gasUsed}. Status: ${txError.receipt.status}`
+        }
+
         // Log detailed error for debugging
         setDebugInfo({
           error: "Transaction failed",
-          details: txError.toString(),
+          details: errorDetails,
+          receipt: txError.receipt || "No receipt available",
           parameters: {
             lzDestChainId,
             encodedRecipient: encodedRecipient.substring(0, 42) + "...",
             payloadLength: payload.length,
-            value: web3.utils.fromWei(totalValueWei, "ether"),
-            gas: 500000,
+            value: web3.utils.fromWei(totalValue.toString(), "ether"),
+            gas: 1000000,
+            adapterParams: adapterParams.substring(0, 66) + "...",
+            nativeFee: web3.utils.fromWei(nativeFee, "ether"),
+            feeWithBuffer: web3.utils.fromWei(feeWithBuffer.toString(), "ether"),
+            totalValue: web3.utils.fromWei(totalValue.toString(), "ether"),
           },
         })
 
+        // Immediately show the Stargate option
         toast({
-          title: "Bridge Failed",
-          description: "Direct bridge transaction failed. You can try using Stargate instead.",
+          title: "Direct Bridge Failed",
+          description: "Try using Stargate Finance instead for a more reliable bridge experience.",
           variant: "destructive",
         })
       }

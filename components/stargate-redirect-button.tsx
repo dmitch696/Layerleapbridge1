@@ -11,7 +11,7 @@ interface StargateRedirectButtonProps {
 export default function StargateRedirectButton({
   destinationChainId = 1, // Default to Ethereum
   amount = "0.01",
-  className = "",
+  className = "bg-purple-600 hover:bg-purple-700 font-medium",
 }: StargateRedirectButtonProps) {
   const getStargateChainId = (evmChainId: number): string => {
     // Map EVM chain IDs to Stargate chain IDs
@@ -41,7 +41,7 @@ export default function StargateRedirectButton({
 
   return (
     <Button onClick={handleRedirect} className={`w-full ${className}`} variant="default">
-      Bridge via Stargate Finance
+      Use Stargate Finance (Recommended)
     </Button>
   )
 }
