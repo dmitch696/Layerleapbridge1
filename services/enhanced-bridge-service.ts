@@ -180,156 +180,100 @@ export async function getBridgeFee(
   }
 }
 
-/**
- * Bridge ETH via LayerZero
- */
+// Check for any problematic Unicode characters or escape sequences
+
+// For example, check the bridgeETH function
 export async function bridgeETH(
-  destinationChainId: number,
-  recipientAddress: string,
-  amount: string,
-): Promise<{ success: boolean; txHash?: string; error?: string }> {
-  try {
-    // Check if we're in a browser environment
-    if (typeof window === "undefined" || !window.ethereum) {
-      throw new Error("MetaMask is not installed. Please install MetaMask to use this feature.")
-    }
+ destinationChainId: number,
+ recipientAddress: string,
+ amount: string,
+): Promise<{ success: boolean; txHash?: string; error?: string; debugInfo?: any }> {
+ try {
+   if (typeof window === "undefined" || !window.ethereum) {
+     throw new Error("MetaMask not installed")
+   }
 
-    // Request account access if needed
-    await window.ethereum.request({ method: "eth_requestAccounts" })
+   const Web3 = await import("web3")
+   const web3 = new Web3.default(window.ethereum)
 
-    // We'll use the window.ethereum provider directly with Web3
-    const Web3 = (await import("web3")).default
-    const web3 = new Web3(window.ethereum)
+   // Request account access
+   await window.ethereum.request({ method: "eth_requestAccounts" })
 
-    // Don't use BN constructor directly
+   // Get current account
+   const accounts = await web3.eth.getAccounts()
+   const account = accounts[0]
 
-    // Check if user is on Optimism
-    let chainId
-    try {
-      // Try multiple methods to get the chain ID
-      chainId = await web3.eth.getChainId()
-      console.log("Chain ID from web3:", chainId)
+   // Check if on Optimism
+   const chainId = await web3.eth.getChainId()
+   if (chainId !== 10) {
+     throw new Error("Please connect to Optimism network")
+   }
 
-      // Also check directly from provider as backup
-      const chainIdHex = await window.ethereum.request({ method: "eth_chainId" })
-      const providerChainId = Number.parseInt(chainIdHex, 16)
-      console.log("Chain ID from provider:", providerChainId)
+   // Check if the chain is supported
+   const isSupported = await isChainSupported(destinationChainId)
+   if (!isSupported) {
+     throw new Error(`Destination chain ${destinationChainId} is not supported`)
+   }
 
-      // Use the provider chain ID if web3 chain ID doesn't match Optimism
-      if (chainId !== 10 && providerChainId === 10) {
-        console.log("Using provider chain ID instead")
-        chainId = providerChainId
-      }
+   // Create contract instance
+   const bridge = new web3.eth.Contract(BRIDGE_ABI as any, CONTRACT_ADDRESSES.LAYER_ZERO_BRIDGE)
 
-      if (chainId !== 10) {
-        throw new Error("Please connect to Optimism network in MetaMask to use this bridge.")
-      }
-    } catch (error) {
-      console.error("Error checking chain ID:", error)
-      throw new Error("Failed to verify network. Please ensure you're connected to Optimism.")
-    }
+   // Get fee estimate
+   const feeResult = await getBridgeFee(destinationChainId, recipientAddress, amount)
+   if (!feeResult.success || !feeResult.fee) {
+     throw new Error("Failed to estimate fee")
+   }
 
-    // Check if the destination chain is supported
-    const isSupported = await isChainSupported(destinationChainId)
-    if (!isSupported) {
-      throw new Error(`Destination chain ${destinationChainId} is not supported by the bridge contract.`)
-    }
+   // Convert amount to wei
+   const amountWei = web3.utils.toWei(amount, "ether")
 
-    // Get current account
-    const accounts = await web3.eth.getAccounts()
-    const account = accounts[0]
+   // Calculate total value to send (amount + fee)
+   const totalEth = Number(amount) + Number(feeResult.fee)
+   const totalWei = web3.utils.toWei(totalEth.toString(), "ether")
 
-    // Create contract instance
-    const bridge = new web3.eth.Contract(BRIDGE_ABI as any, CONTRACT_ADDRESSES.LAYER_ZERO_BRIDGE)
+   console.log("Bridging details:", {
+     from: account,
+     to: account, // Same address on destination chain
+     destinationChain: destinationChainId,
+     amount: amount + " ETH",
+     fee: feeResult.fee + " ETH",
+     total: totalEth.toFixed(6) + " ETH",
+   })
 
-    // Format the recipient address properly
-    const formattedRecipientAddress = recipientAddress.startsWith("0x") ? recipientAddress : `0x${recipientAddress}`
-    console.log("Formatted recipient address:", formattedRecipientAddress)
+   // Execute bridge transaction
+   const tx = await bridge.methods.bridgeNative(destinationChainId, recipientAddress).send({
+     from: account,
+     value: totalWei,
+   })
 
-    // Convert amount to wei
-    const amountWei = web3.utils.toWei(amount, "ether")
+   console.log("Transaction submitted:", tx.transactionHash)
 
-    // Get fee estimate
-    const feeWei = await bridge.methods.estimateFee(destinationChainId, formattedRecipientAddress, amountWei).call()
+   // Save transaction to history
+   saveTransaction({
+     hash: tx.transactionHash,
+     from: account,
+     destinationChainId,
+     amount: amount,
+     fee: feeResult.fee,
+     timestamp: Date.now(),
+     status: "pending",
+   })
 
-    console.log(`Estimated fee: ${web3.utils.fromWei(feeWei, "ether")} ETH`)
-
-    // Use simple math instead of BN
-    const feeNum = Number(web3.utils.fromWei(feeWei, "ether"))
-    const feeWithBuffer = feeNum * 1.1
-    const feeWithBufferStr = web3.utils.toWei(feeWithBuffer.toString(), "ether")
-
-    // Calculate total amount using simple math
-    const amountNum = Number(web3.utils.fromWei(amountWei, "ether"))
-    const totalValueETH = amountNum + feeWithBuffer
-    const totalValue = web3.utils.toWei(totalValueETH.toString(), "ether")
-
-    console.log("Amount Wei:", amountWei)
-    console.log("Fee Wei with buffer:", feeWithBufferStr)
-    console.log("Total Value:", totalValue)
-    console.log("Total Value in ETH:", web3.utils.fromWei(totalValue, "ether"))
-
-    // Estimate gas for the transaction
-    try {
-      const gasEstimate = await bridge.methods.bridgeNative(destinationChainId, formattedRecipientAddress).estimateGas({
-        from: account,
-        value: totalValue,
-      })
-      console.log("Estimated gas:", gasEstimate)
-    } catch (gasError) {
-      console.error("Gas estimation failed:", gasError)
-      // Continue anyway, but log the error
-    }
-
-    // Execute bridge transaction with higher gas limit to ensure it goes through
-    const tx = await bridge.methods.bridgeNative(destinationChainId, formattedRecipientAddress).send({
-      from: account,
-      value: totalValue,
-      gas: 300000, // Set a higher gas limit
-    })
-
-    console.log(`Transaction submitted: ${tx.transactionHash}`)
-    console.log(
-      "Transaction details:",
-      JSON.stringify({
-        hash: tx.transactionHash,
-        blockNumber: tx.blockNumber,
-        from: tx.from,
-        to: tx.to,
-        status: tx.status,
-      }),
-    )
-
-    // Save transaction to history
-    saveTransaction({
-      hash: tx.transactionHash,
-      from: account,
-      destinationChainId,
-      amount,
-      fee: web3.utils.fromWei(feeWithBufferStr, "ether"),
-      timestamp: Date.now(),
-      status: "pending",
-    })
-
-    return {
-      success: true,
-      txHash: tx.transactionHash,
-    }
-  } catch (error: any) {
-    console.error("Bridge error:", error)
-
-    // Extract more detailed error information if available
-    let errorMessage = error.message
-
-    if (error.receipt) {
-      errorMessage += ` - Transaction reverted. Receipt: ${JSON.stringify(error.receipt)}`
-    }
-
-    return {
-      success: false,
-      error: errorMessage,
-    }
-  }
+   return {
+     success: true,
+     txHash: tx.transactionHash,
+   }
+ } catch (error: any) {
+   console.error("Bridge error:", error)
+   return {
+     success: false,
+     error: error.message,
+     debugInfo: {
+       error: error.message,
+       errorCode: error.code,
+     },
+   }
+ }
 }
 
 /**

@@ -1,5 +1,3 @@
-// This service uses the official LayerZero SDK to handle bridging
-
 // Chain data for UI
 export const CHAINS = [
   { id: 1, name: "Ethereum", logo: "🔷", lzChainId: 101 },
@@ -57,6 +55,26 @@ const LZ_ENDPOINT_ABI = [
 
 // LayerZero Endpoint address on Optimism
 const LZ_ENDPOINT_ADDRESS = "0x3c2269811836af69497E5F486A85D7316753cf62"
+
+// Check for any problematic Unicode characters or escape sequences
+
+// For example, check the encodeAddressForLayerZero function
+function encodeAddressForLayerZero(address: string): string {
+  // Ensure the address is properly formatted
+  if (!address.startsWith("0x")) {
+    address = "0x" + address
+  }
+
+  // Remove the 0x prefix for encoding
+  const addressWithoutPrefix = address.substring(2)
+
+  // Pad the address to 32 bytes (64 hex characters)
+  // This is what LayerZero expects - the address needs to be left-padded with zeros
+  const paddedAddress = addressWithoutPrefix.padStart(64, "0")
+
+  // Return with 0x prefix
+  return "0x" + paddedAddress
+}
 
 /**
  * Check if the user is connected to Optimism
@@ -117,27 +135,6 @@ export async function switchToOptimism(): Promise<boolean> {
     console.error("Error switching to Optimism:", switchError)
     return false
   }
-}
-
-/**
- * Properly encode an address for LayerZero
- * This is the key function that fixes the "incorrect remote address size" error
- */
-function encodeAddressForLayerZero(address: string): string {
-  // Ensure the address is properly formatted
-  if (!address.startsWith("0x")) {
-    address = "0x" + address
-  }
-
-  // Remove the 0x prefix for encoding
-  const addressWithoutPrefix = address.substring(2)
-
-  // Pad the address to 32 bytes (64 hex characters)
-  // This is what LayerZero expects - the address needs to be left-padded with zeros
-  const paddedAddress = addressWithoutPrefix.padStart(64, "0")
-
-  // Return with 0x prefix
-  return "0x" + paddedAddress
 }
 
 /**
@@ -211,26 +208,29 @@ export async function bridgeETH(
     // Create adapter parameters with a fixed gas limit
     const adapterParams = createDefaultAdapterParams(300000) // 300k gas limit
 
-    // Estimate the fee
-    const [nativeFee, zroFee] = await lzEndpoint.methods
-      .estimateFees(
-        lzDestChainId,
-        encodedRecipient,
-        payload,
-        false, // payInZRO - we're paying in native token
-        adapterParams,
-      )
-      .call()
+    // Zero address for ZRO token payments (we're not using ZRO)
+    const zeroAddress = "0x0000000000000000000000000000000000000000"
 
-    console.log("Estimated native fee:", web3.utils.fromWei(nativeFee, "ether"), "ETH")
+    // Get current account balance
+    const balanceWei = await web3.eth.getBalance(account)
+    const balanceEth = web3.utils.fromWei(balanceWei, "ether")
+    console.log(`Account balance: ${balanceEth} ETH`)
 
-    // Add a 20% buffer to the fee
-    const feeWithBuffer = web3.utils.toBN(nativeFee).mul(web3.utils.toBN(120)).div(web3.utils.toBN(100))
-    console.log("Fee with buffer:", web3.utils.fromWei(feeWithBuffer.toString(), "ether"), "ETH")
+    // Fixed fee for debugging (0.0003 ETH)
+    const feeEth = "0.0003"
+    const feeWei = web3.utils.toWei(feeEth, "ether")
+    console.log(`Using fixed fee: ${feeEth} ETH (${feeWei} wei)`)
 
     // Calculate total value to send (amount + fee)
-    const totalValue = web3.utils.toBN(amountWei).add(feeWithBuffer)
-    console.log("Total value:", web3.utils.fromWei(totalValue.toString(), "ether"), "ETH")
+    const amountEth = Number(testAmount)
+    const totalEth = amountEth + Number(feeEth)
+    const totalWei = web3.utils.toWei(totalEth.toString(), "ether")
+    console.log(`Total value: ${totalEth} ETH (${totalWei} wei)`)
+
+    // Check if we have enough balance
+    if (Number(balanceEth) < totalEth) {
+      throw new Error(`Insufficient balance. You need at least ${totalEth} ETH but have ${balanceEth} ETH.`)
+    }
 
     // Send the transaction
     console.log("Sending transaction...")
@@ -240,12 +240,12 @@ export async function bridgeETH(
         encodedRecipient,
         payload,
         account, // refund address (same as sender)
-        "0x0000000000000000000000000000000000000000", // zroPaymentAddress - we're not using ZRO token
+        zeroAddress, // zroPaymentAddress - we're not using ZRO token
         adapterParams,
       )
       .send({
         from: account,
-        value: totalValue.toString(),
+        value: totalWei,
         gas: 500000, // Fixed high gas limit
       })
 
@@ -257,7 +257,7 @@ export async function bridgeETH(
       from: account,
       destinationChainId,
       amount: testAmount,
-      fee: web3.utils.fromWei(feeWithBuffer.toString(), "ether"),
+      fee: web3.utils.fromWei(feeWei, "ether"),
       timestamp: Date.now(),
       status: "pending",
     })

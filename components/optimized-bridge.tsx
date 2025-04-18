@@ -1,4 +1,4 @@
-"\"use client"
+"use client"
 
 import type React from "react"
 
@@ -27,6 +27,7 @@ export default function OptimizedBridge() {
   const [balance, setBalance] = useState<string | null>(null)
   const [fee, setFee] = useState<string | null>(null)
   const [supportedChains, setSupportedChains] = useState<Record<number, boolean>>({})
+  const [isCheckingSupport, setIsCheckingSupport] = useState(false)
 
   useEffect(() => {
     async function checkConnection() {
@@ -259,4 +260,3 @@ export default function OptimizedBridge() {
     </Card>
   )
 }
-\"\

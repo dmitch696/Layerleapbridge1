@@ -1,5 +1,5 @@
 // Import ethers dynamically to avoid SSR issues
-let ethers: any
+let ethers: any = null
 
 // Chain IDs for reference
 export const CHAIN_IDS = {
@@ -53,7 +53,14 @@ async function getEthers() {
   if (!ethers) {
     // Only import ethers on the client side
     if (typeof window !== "undefined") {
-      ethers = await import("ethers")
+      try {
+        const ethersModule = await import("ethers")
+        ethers = ethersModule
+      } catch (error) {
+        console.warn("Ethers import failed, using mock implementation")
+        // Provide a mock implementation or handle the error as needed
+        ethers = {} // Mock ethers object
+      }
     } else {
       throw new Error("Ethers can only be loaded in browser environment")
     }
@@ -64,68 +71,71 @@ async function getEthers() {
 /**
  * Bridge ETH via LayerZero
  */
+// Check for any problematic Unicode characters or escape sequences
+
+// For example, check the bridgeViaLayerZero function
 export async function bridgeViaLayerZero(
-  destinationChainId: number,
-  recipientAddress: string,
-  amount: string,
+ destinationChainId: number,
+ recipientAddress: string,
+ amount: string,
 ): Promise<{ success: boolean; txHash?: string; error?: string }> {
-  try {
-    // Check if we're in a browser environment
-    if (typeof window === "undefined" || !window.ethereum) {
-      throw new Error("MetaMask is not installed. Please install MetaMask to use this feature.")
-    }
+ try {
+   // Check if we're in a browser environment
+   if (typeof window === "undefined" || !window.ethereum) {
+     throw new Error("MetaMask is not installed. Please install MetaMask to use this feature.")
+   }
 
-    // Load ethers
-    const ethersLib = await getEthers()
+   // Load ethers
+   const ethersLib = await getEthers()
 
-    // Request account access if needed
-    await window.ethereum.request({ method: "eth_requestAccounts" })
+   // Request account access if needed
+   await window.ethereum.request({ method: "eth_requestAccounts" })
 
-    // Create provider and signer
-    const provider = new ethersLib.providers.Web3Provider(window.ethereum)
-    const signer = provider.getSigner()
+   // Create provider and signer
+   const provider = new ethersLib.providers.Web3Provider(window.ethereum)
+   const signer = provider.getSigner()
 
-    // Check if user is on Optimism
-    const network = await provider.getNetwork()
-    if (network.chainId !== 10) {
-      throw new Error("Please connect to Optimism network in MetaMask to use this bridge.")
-    }
+   // Check if user is on Optimism
+   const network = await provider.getNetwork()
+   if (network.chainId !== 10) {
+     throw new Error("Please connect to Optimism network in MetaMask to use this bridge.")
+   }
 
-    // Create contract instance
-    const bridge = new ethersLib.Contract(BRIDGE_ADDRESS, BRIDGE_ABI, signer)
+   // Create contract instance
+   const bridge = new ethersLib.Contract(BRIDGE_ADDRESS, BRIDGE_ABI, signer)
 
-    // Convert amount to wei
-    const amountWei = ethersLib.utils.parseEther(amount)
+   // Convert amount to wei
+   const amountWei = ethersLib.utils.parseEther(amount)
 
-    // Get fee estimate
-    const feeWei = await bridge.estimateFee(destinationChainId, recipientAddress, amountWei)
+   // Get fee estimate
+   const feeWei = await bridge.estimateFee(destinationChainId, recipientAddress, amountWei)
 
-    console.log(`Estimated fee: ${ethersLib.utils.formatEther(feeWei)} ETH`)
+   console.log(`Estimated fee: ${ethersLib.utils.formatEther(feeWei)} ETH`)
 
-    // Calculate total amount (amount to bridge + fee)
-    const totalValue = amountWei.add(feeWei)
+   // Calculate total amount (amount to bridge + fee)
+   const totalValue = amountWei.add(feeWei)
 
-    // Execute bridge transaction
-    const tx = await bridge.bridgeNative(destinationChainId, recipientAddress, { value: totalValue })
+   // Execute bridge transaction
+   const tx = await bridge.bridgeNative(destinationChainId, recipientAddress, { value: totalValue })
 
-    console.log(`Transaction submitted: ${tx.hash}`)
+   console.log(`Transaction submitted: ${tx.hash}`)
 
-    // Wait for transaction to be mined
-    const receipt = await tx.wait()
+   // Wait for transaction to be mined
+   const receipt = await tx.wait()
 
-    console.log(`Transaction confirmed in block ${receipt.blockNumber}`)
+   console.log(`Transaction confirmed in block ${receipt.blockNumber}`)
 
-    return {
-      success: true,
-      txHash: tx.hash,
-    }
-  } catch (error: any) {
-    console.error("Bridge error:", error)
-    return {
-      success: false,
-      error: error.message,
-    }
-  }
+   return {
+     success: true,
+     txHash: tx.hash,
+   }
+ } catch (error: any) {
+   console.error("Bridge error:", error)
+   return {
+     success: false,
+     error: error.message,
+   }
+ }
 }
 
 /**

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/components/ui/use-toast"
-import { Loader2 } from "lucide-react"
+import { Loader2 } from 'lucide-react'
 import { isConnectedToOptimism, switchToOptimism } from "@/utils/network-utils"
 
 // LayerZero Endpoint address on Optimism
@@ -240,21 +240,23 @@ export default function DebugLayerZeroBridge() {
   /**
    * Properly encode an address for LayerZero
    */
+  // Check for any problematic Unicode characters or escape sequences
+
+  // For example, check the encodeAddressForLayerZero function
   function encodeAddressForLayerZero(address: string): string {
     if (!web3) return "0x"
-    addLog(`Encoding address for LayerZero: ${address}`)
-
+    
     // Ensure the address is properly formatted
     if (!address.startsWith("0x")) {
       address = "0x" + address
     }
-
+    
     // Remove the 0x prefix for encoding
     const addressWithoutPrefix = address.substring(2).toLowerCase()
-
+    
     // Pad the address to 32 bytes (64 hex characters)
     const paddedAddress = addressWithoutPrefix.padStart(64, "0")
-
+    
     // Return with 0x prefix
     const result = "0x" + paddedAddress
     addLog(`Encoded address: ${result} (length: ${result.length})`)

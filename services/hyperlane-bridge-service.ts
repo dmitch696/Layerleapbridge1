@@ -164,7 +164,7 @@ export async function bridgeETH(
     const recipientBytes32 = addressToBytes32(account)
     console.log("Recipient bytes32:", recipientBytes32)
 
-    // Create message body with the amount
+    // Create a message body with the amount
     const amountWei = web3.utils.toWei(amount, "ether")
     const messageBody = web3.eth.abi.encodeParameters(["uint256"], [amountWei])
 

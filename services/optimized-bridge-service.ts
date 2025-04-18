@@ -348,29 +348,6 @@ function saveTransaction(tx: BridgeTransaction): void {
   }
 }
 
-/**
- * Get transaction history from local storage
- */
-export function getTransactionHistory(): BridgeTransaction[] {
-  try {
-    if (typeof window === "undefined") {
-      return []
-    }
-
-    const TX_HISTORY_KEY = "layerleap_bridge_transactions"
-    const txsJson = localStorage.getItem(TX_HISTORY_KEY)
-
-    if (!txsJson) {
-      return []
-    }
-
-    return JSON.parse(txsJson)
-  } catch (error) {
-    console.error("Error getting transaction history:", error)
-    return []
-  }
-}
-
 // Add TypeScript support for window.ethereum
 declare global {
   interface Window {

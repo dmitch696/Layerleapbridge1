@@ -78,7 +78,9 @@ export async function testLayerZeroBridge() {
     const amount = "0.0001" // Very small test amount
     const amountWei = web3.utils.toWei(amount, "ether")
 
-    // Encode recipient address for LayerZero
+    // Check for any problematic Unicode characters or escape sequences
+
+    // For example, check the encodeAddressForLayerZero function
     function encodeAddressForLayerZero(address) {
       if (!address.startsWith("0x")) {
         address = "0x" + address

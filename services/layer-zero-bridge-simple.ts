@@ -43,7 +43,6 @@ const BRIDGE_ABI = [
     stateMutability: "view",
     type: "function",
   },
-  // Add a function to check if the chain is supported
   {
     inputs: [{ internalType: "uint256", name: "", type: "uint256" }],
     name: "chainToLzId",
@@ -178,7 +177,7 @@ export async function bridgeViaLayerZero(
     // Convert fee with buffer back to wei
     const feeWithBufferWei = web3.utils.toWei(feeWithBuffer.toString(), "ether")
 
-    // Calculate total amount (amount to bridge + fee)
+    // Calculate total value (amount to bridge + fee)
     const amountNum = Number(amount)
     const totalValueETH = amountNum + feeWithBuffer
     const totalValueWei = web3.utils.toWei(totalValueETH.toString(), "ether")

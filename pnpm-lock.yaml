@@ -389,8 +389,8 @@ packages:
   '@bytecodealliance/preview2-shim@0.17.0':
     resolution: {integrity: sha512-JorcEwe4ud0x5BS/Ar2aQWOQoFzjq/7jcnxYXCvSMh0oRm0dQXzOA+hqLDBnOMks1LLBA7dmiLLsEBl09Yd6iQ==}
 
-  '@chain-registry/types@0.50.117':
-    resolution: {integrity: sha512-JEBF2CmlMcp82PabsUSFp9WYKmnjeSM5iJEAT/Rspf/WpytZEfoBSRv7ag0vaVi6h4ofYLxyGQYD+D6oTJcb5A==}
+  '@chain-registry/types@0.50.118':
+    resolution: {integrity: sha512-DkyfWL5lIPNh0TjIGiQdkINZCZj9jZBHXXuMN5XJx750RZLGQoDAFcwexoZrNO21J/jTtRnjy44BtWISNVuqJQ==}
 
   '@chainlink/contracts-ccip@1.5.0':
     resolution: {integrity: sha512-pz6vhAY6ey5vLjU6mUv7rapRIKXWS2kEhd+J4axdeQhyClfyl+HyzqBTL+Jd/tbekhrfEn2YbkhIZXlovvUk7w==}
@@ -6469,7 +6469,7 @@ snapshots:
   '@bytecodealliance/preview2-shim@0.17.0':
     optional: true
 
-  '@chain-registry/types@0.50.117': {}
+  '@chain-registry/types@0.50.118': {}
 
   '@chainlink/contracts-ccip@1.5.0(@nomicfoundation/hardhat-verify@2.0.13(hardhat@2.23.0(bufferutil@4.0.9)(ts-node@10.9.2(@types/node@22.0.0)(typescript@5.0.2))(typescript@5.0.2)(utf-8-validate@5.0.10)))(bufferutil@4.0.9)(ethers@5.7.2(bufferutil@4.0.9)(utf-8-validate@5.0.10))(hardhat@2.23.0(bufferutil@4.0.9)(ts-node@10.9.2(@types/node@22.0.0)(typescript@5.0.2))(typescript@5.0.2)(utf-8-validate@5.0.10))(utf-8-validate@5.0.10)':
     dependencies:
@@ -7398,7 +7398,7 @@ snapshots:
     dependencies:
       '@arbitrum/sdk': 4.0.4(bufferutil@4.0.9)(utf-8-validate@5.0.10)
       '@aws-sdk/client-s3': 3.787.0
-      '@chain-registry/types': 0.50.117
+      '@chain-registry/types': 0.50.118
       '@cosmjs/cosmwasm-stargate': 0.32.4(bufferutil@4.0.9)(utf-8-validate@5.0.10)
       '@cosmjs/stargate': 0.32.4(bufferutil@4.0.9)(utf-8-validate@5.0.10)
       '@ethersproject/abi': 5.8.0

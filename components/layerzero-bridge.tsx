@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/components/ui/use-toast"
-import { Loader2 } from "lucide-react"
+import { Loader2 } from 'lucide-react'
 import { isConnectedToOptimism, switchToOptimism } from "@/utils/network-utils"
 import StargateRedirectButton from "./stargate-redirect-button"
 
@@ -275,25 +275,24 @@ export default function LayerZeroBridge() {
     }
   }
 
+  // Check for any problematic Unicode characters or escape sequences
+
   /**
    * Properly encode an address for LayerZero
    * This is the key function that fixes the "incorrect remote address size" error
    */
   function encodeAddressForLayerZero(address: string): string {
-    if (!web3) return "0x"
-
     // Ensure the address is properly formatted
     if (!address.startsWith("0x")) {
       address = "0x" + address
     }
-
+    
     // Remove the 0x prefix for encoding
     const addressWithoutPrefix = address.substring(2).toLowerCase()
-
+    
     // Pad the address to 32 bytes (64 hex characters)
-    // This is what LayerZero expects - the address needs to be left-padded with zeros
     const paddedAddress = addressWithoutPrefix.padStart(64, "0")
-
+    
     // Return with 0x prefix
     return "0x" + paddedAddress
   }

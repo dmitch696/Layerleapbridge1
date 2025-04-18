@@ -10,10 +10,11 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // Explicitly configure to use SWC
-  swcMinify: true,
+  // Disable SWC minification to see if that's causing the issue
+  swcMinify: false,
   experimental: {
-    forceSwcTransforms: true,
+    // Remove forceSwcTransforms to see if that's causing the issue
+    // forceSwcTransforms: true,
   },
 }
 

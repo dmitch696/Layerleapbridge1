@@ -1,5 +1,6 @@
+"use client"
+
 import type React from "react"
-;('"use client')
 
 import { createContext, useContext, useState, useEffect, useCallback } from "react"
 
