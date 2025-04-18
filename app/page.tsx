@@ -2,7 +2,6 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import Header from "@/components/header"
 import Footer from "@/components/footer"
-import BridgeForm from "@/components/bridge-form"
 import EthereumLogo from "@/components/logos/ethereum-logo"
 import OptimismLogo from "@/components/logos/optimism-logo"
 import ArbitrumLogo from "@/components/logos/arbitrum-logo"
@@ -24,8 +23,8 @@ export default function Home() {
           </div>
 
           <div className="container mx-auto px-4 relative z-10">
-            <div className="flex flex-col lg:flex-row items-center gap-12">
-              <div className="lg:w-1/2 space-y-6">
+            <div className="flex flex-col items-center gap-12">
+              <div className="max-w-2xl mx-auto text-center space-y-6">
                 <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
                   <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
                     Bridge assets
@@ -36,7 +35,7 @@ export default function Home() {
                   LayerLeap provides a fast, secure, and cost-effective way to transfer your assets between different
                   blockchain networks.
                 </p>
-                <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   <Link href="/bridge">
                     <Button
                       size="lg"
@@ -53,11 +52,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="lg:w-1/2">
-                <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-xl">
-                  <BridgeForm />
-                </div>
-              </div>
+              {/* Bridge form removed */}
             </div>
           </div>
         </section>
