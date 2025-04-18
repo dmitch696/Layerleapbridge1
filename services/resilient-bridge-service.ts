@@ -95,12 +95,12 @@ export async function switchToOptimism(): Promise<boolean> {
           ],
         })
         return await switchToOptimism()
-      } catch (addError) {
-        console.error("Error adding Optimism network:", addError)
+      } catch (error) {
+        console.error("Error adding Optimism:", error)
         return false
       }
     }
-    console.error("Error switching to Optimism:", switchError)
+    console.error("Error switching network:", switchError)
     return false
   }
 }
@@ -131,8 +131,6 @@ export async function isChainSupported(destinationChainId: number): Promise<bool
 
 // Check for any problematic Unicode characters or escape sequences
 
-// Update the bridgeETH function to match Stargate's parameters more closely
-
 // For example, check the bridgeETH function
 export async function bridgeETH(
   destinationChainId: number,
@@ -144,16 +142,11 @@ export async function bridgeETH(
       throw new Error("MetaMask not installed")
     }
 
-    // Use Web3.js
-    const Web3 = await import("web3")
-    const web3 = new Web3.default(window.ethereum)
-
     // Request account access
     await window.ethereum.request({ method: "eth_requestAccounts" })
 
-    // Get current account
-    const accounts = await web3.eth.getAccounts()
-    const account = accounts[0]
+    const Web3 = await import("web3")
+    const web3 = new Web3.default(window.ethereum)
 
     // Check if on Optimism
     const chainId = await web3.eth.getChainId()
@@ -161,15 +154,28 @@ export async function bridgeETH(
       throw new Error("Please connect to Optimism network")
     }
 
+    // Get current account
+    const accounts = await web3.eth.getAccounts()
+    const account = accounts[0]
+
     // Create contract instance
     const bridge = new web3.eth.Contract(BRIDGE_ABI as any, BRIDGE_CONTRACT)
 
-    // Use a smaller test amount to match Stargate's parameters
+    // Format address
+    const formattedAddress = recipientAddress.startsWith("0x") ? recipientAddress : `0x${recipientAddress}`
+
+    // Get fee estimate
+    // const feeResult = await getBridgeFee(destinationChainId, formattedAddress, amount)
+    // if (!feeResult.success || !feeResult.fee) {
+    //   throw new Error("Failed to estimate fee")
+    // }
+
+    // Use a very small amount for testing
     const testAmount = "0.0001" // 0.0001 ETH
     console.log(`Using test amount: ${testAmount} ETH`)
 
     // Use a smaller fee similar to Stargate (0.000011 ETH)
-    const fixedFee = "0.000011" // 0.000011 ETH instead of 0.0003
+    const fixedFee = "0.000011" // 0.000011 ETH
     console.log(`Using fixed fee: ${fixedFee} ETH`)
 
     // Calculate total amount (amount + fee) using simple math
@@ -178,20 +184,26 @@ export async function bridgeETH(
 
     console.log("Bridging details:", {
       from: account,
-      to: recipientAddress,
+      to: formattedAddress,
       destinationChain: destinationChainId,
       amount: testAmount + " ETH",
       fee: fixedFee + " ETH",
       total: totalEth.toFixed(6) + " ETH",
     })
 
-    // Execute bridge transaction with lower gas limit to match Stargate
-    const tx = await bridge.methods.bridgeNative(destinationChainId, recipientAddress).send({
+    // Execute bridge transaction
+    // The key is to use the correct parameters for the LayerZero send function
+    const lzChainId = 110 // Destination chain ID (Arbitrum)
+    const adapterParams = "0x" // Empty adapter params
+    const payload = web3.eth.abi.encodeParameters(
+      ["address", "uint256"],
+      [formattedAddress, web3.utils.toWei(testAmount, "ether")],
+    )
+
+    const tx = await bridge.methods.bridgeNative(destinationChainId, formattedAddress).send({
       from: account,
       value: totalWei,
-      gas: 300000, // Lower gas limit
-      maxFeePerGas: web3.utils.toWei("0.1", "gwei"), // Set a lower max fee per gas
-      maxPriorityFeePerGas: web3.utils.toWei("0.1", "gwei"), // Set a lower priority fee
+      gas: 500000, // Higher gas limit
     })
 
     console.log("Transaction submitted:", tx.transactionHash)

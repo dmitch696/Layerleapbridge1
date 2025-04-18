@@ -20,7 +20,7 @@ export async function isConnectedToOptimism(): Promise<boolean> {
   }
 
   try {
-    // Method 1: Direct provider request
+    // Method 1: Direct provider request - most reliable method
     const chainIdHex = await window.ethereum.request({ method: "eth_chainId" })
     const chainId = Number.parseInt(chainIdHex, 16)
     console.log("Chain ID from direct provider request:", chainId, "Hex:", chainIdHex)
@@ -31,23 +31,18 @@ export async function isConnectedToOptimism(): Promise<boolean> {
     }
 
     // Method 2: Try using Web3.js as fallback if available
-    if (typeof window !== "undefined") {
-      try {
-        const Web3Module = await import("web3")
-        // Handle both default export styles
-        const Web3 = Web3Module.default || Web3Module
-        const web3 = new Web3(window.ethereum)
-        const web3ChainId = await web3.eth.getChainId()
-        console.log("Chain ID from Web3:", web3ChainId)
+    try {
+      const Web3 = (await import("web3")).default
+      const web3 = new Web3(window.ethereum)
+      const web3ChainId = await web3.eth.getChainId()
+      console.log("Chain ID from Web3:", web3ChainId)
 
-        if (web3ChainId === OPTIMISM_CHAIN_ID) {
-          console.log("✅ Connected to Optimism (Web3 chainId: 10)")
-          return true
-        }
-      } catch (web3Error) {
-        console.warn("Web3 check failed:", web3Error)
-        // Continue with other methods
+      if (web3ChainId === OPTIMISM_CHAIN_ID) {
+        console.log("✅ Connected to Optimism (Web3 chainId: 10)")
+        return true
       }
+    } catch (web3Error) {
+      console.warn("Web3 check failed:", web3Error)
     }
 
     // Method 3: Try network version as a last resort
@@ -86,6 +81,9 @@ export async function switchToOptimism(): Promise<boolean> {
       params: [{ chainId: OPTIMISM_CHAIN_ID_HEX }],
     })
 
+    // Wait a moment for the network to switch
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+
     // Verify the switch was successful
     return await isConnectedToOptimism()
   } catch (switchError: any) {
@@ -103,11 +101,18 @@ export async function switchToOptimism(): Promise<boolean> {
                 symbol: "ETH",
                 decimals: 18,
               },
-              rpcUrls: ["https://mainnet.optimism.io", "https://optimism-mainnet.public.blastapi.io"],
+              rpcUrls: [
+                "https://mainnet.optimism.io",
+                "https://optimism-mainnet.public.blastapi.io",
+                "https://1rpc.io/op",
+              ],
               blockExplorerUrls: ["https://optimistic.etherscan.io"],
             },
           ],
         })
+
+        // Wait a moment for the network to be added
+        await new Promise((resolve) => setTimeout(resolve, 1000))
 
         // Try switching again after adding
         return await switchToOptimism()
