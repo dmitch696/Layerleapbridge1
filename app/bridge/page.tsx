@@ -84,6 +84,28 @@ export default function BridgePage() {
                 </div>
               </CardContent>
             </Card>
+
+            <Card className="bg-gray-900 border-gray-800 hover:border-purple-500 transition-colors">
+              <CardHeader>
+                <CardTitle>Stargate-Compatible Bridge</CardTitle>
+                <CardDescription>Direct LayerZero transactions with Stargate parameters</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-gray-400">
+                  This bridge directly calls the LayerZero endpoint with the same parameters as Stargate.
+                </p>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <span className="text-xs bg-purple-900/50 py-1 px-2 rounded">Advanced</span>
+                  </div>
+                  <Link href="/bridge/stargate-compatible">
+                    <Button variant="outline" className="border-purple-500 hover:bg-purple-900/20">
+                      Select
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           <div className="mt-12 w-full max-w-3xl">
