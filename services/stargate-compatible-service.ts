@@ -1,9 +1,4 @@
-// This service directly calls the LayerZero endpoint with the same parameters as Stargate
-
-// Add these import statements at the top of the file
-import Web3 from "web3"
-
-// Chain data for UI with LayerZero chain IDs (these match Stargate's chain IDs)
+// Chain data for UI
 export const CHAINS = [
   { id: 1, name: "Ethereum", logo: "🔷", lzChainId: 101 },
   { id: 42161, name: "Arbitrum", logo: "🔶", lzChainId: 110 },
@@ -64,7 +59,6 @@ const LZ_ENDPOINT_ABI = [
   },
 ]
 
-// Update the isConnectedToOptimism function to be more robust
 /**
  * Check if the user is connected to Optimism
  */
@@ -74,47 +68,84 @@ export async function isConnectedToOptimism(): Promise<boolean> {
   }
 
   try {
-    // Method 1: Direct provider request - most reliable method
     const chainIdHex = await window.ethereum.request({ method: "eth_chainId" })
-    const chainId = Number.parseInt(chainIdHex, 16)
-    console.log("Chain ID from direct provider request:", chainId, "Hex:", chainIdHex)
-
-    if (chainId === 10) {
-      console.log("✅ Connected to Optimism (chainId: 10)")
-      return true
-    }
-
-    // Method 2: Try using Web3.js as fallback if available
-    try {
-      const web3 = new Web3(window.ethereum)
-      const web3ChainId = await web3.eth.getChainId()
-      console.log("Chain ID from Web3:", web3ChainId)
-
-      if (web3ChainId === 10) {
-        console.log("✅ Connected to Optimism (Web3 chainId: 10)")
-        return true
-      }
-    } catch (web3Error) {
-      console.warn("Web3 check failed:", web3Error)
-    }
-
-    // Method 3: Try network version as a last resort
-    try {
-      const networkVersion = await window.ethereum.request({ method: "net_version" })
-      console.log("Network version:", networkVersion)
-
-      if (networkVersion === "10") {
-        console.log("✅ Connected to Optimism (networkVersion: 10)")
-        return true
-      }
-    } catch (versionError) {
-      console.error("Error getting network version:", versionError)
-    }
-
-    console.log("❌ Not connected to Optimism - detected chain ID:", chainId)
-    return false
+    return Number.parseInt(chainIdHex, 16) === 10
   } catch (error) {
     console.error("Error checking network:", error)
     return false
+  }
+}
+
+/**
+ * Switch to Optimism network
+ */
+export async function switchToOptimism(): Promise<boolean> {
+  if (typeof window === "undefined" || !window.ethereum) {
+    return false
+  }
+
+  try {
+    await window.ethereum.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: "0xA" }], // 10 in hex
+    })
+    return true
+  } catch (switchError: any) {
+    if (switchError.code === 4902) {
+      try {
+        await window.ethereum.request({
+          method: "wallet_addEthereumChain",
+          params: [
+            {
+              chainId: "0xA",
+              chainName: "Optimism",
+              nativeCurrency: {
+                name: "Ethereum",
+                symbol: "ETH",
+                decimals: 18,
+              },
+              rpcUrls: ["https://mainnet.optimism.io"],
+              blockExplorerUrls: ["https://optimistic.etherscan.io"],
+            },
+          ],
+        })
+        return await switchToOptimism()
+      } catch (addError) {
+        console.error("Error adding Optimism network:", addError)
+        return false
+      }
+    }
+    console.error("Error switching network:", switchError)
+    return false
+  }
+}
+
+/**
+ * Get fee estimate for bridging
+ */
+export async function getStargateBridgeFee(
+  destinationChainId: number,
+  recipientAddress: string,
+  amount: string,
+): Promise<{ success: boolean; fee?: string; error?: string }> {
+  // Placeholder implementation - replace with actual fee estimation logic
+  return {
+    success: true,
+    fee: "0.0003", // Fixed fee for now
+  }
+}
+
+/**
+ * Bridge ETH via Stargate (placeholder implementation)
+ */
+export async function bridgeViaStargate(
+  destinationChainId: number,
+  recipientAddress: string,
+  amount: string,
+): Promise<{ success: boolean; txHash?: string; error?: string }> {
+  // Placeholder implementation - replace with actual bridge logic
+  return {
+    success: true,
+    txHash: "0x" + Math.random().toString(36).substring(2, 15), // Dummy tx hash
   }
 }

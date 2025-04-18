@@ -40,72 +40,6 @@ export default function BridgePage() {
                 </div>
               </CardContent>
             </Card>
-
-            <Card className="bg-gray-900 border-gray-800 hover:border-green-500 transition-colors">
-              <CardHeader>
-                <CardTitle>Hyperlane Bridge</CardTitle>
-                <CardDescription>Secure interchain communication with modular security</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-gray-400">
-                  Hyperlane offers permissionless messaging with customizable security for your assets.
-                </p>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <span className="text-xs bg-green-900/50 py-1 px-2 rounded">Fee: Medium</span>
-                  </div>
-                  <Link href="/bridge/hyperlane">
-                    <Button variant="outline" className="border-green-500 hover:bg-green-900/20">
-                      Select
-                    </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-gray-900 border-gray-800 hover:border-purple-500 transition-colors">
-              <CardHeader>
-                <CardTitle>Stargate Bridge</CardTitle>
-                <CardDescription>User-friendly bridging with unified liquidity</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-gray-400">
-                  Stargate combines liquidity from all chains into a single unified pool for efficient bridging.
-                </p>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <span className="text-xs bg-purple-900/50 py-1 px-2 rounded">Fee: Medium-High</span>
-                  </div>
-                  <Link href="/bridge/stargate">
-                    <Button variant="outline" className="border-purple-500 hover:bg-purple-900/20">
-                      Select
-                    </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-gray-900 border-gray-800 hover:border-purple-500 transition-colors">
-              <CardHeader>
-                <CardTitle>Stargate-Compatible Bridge</CardTitle>
-                <CardDescription>Direct LayerZero transactions with Stargate parameters</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-gray-400">
-                  This bridge directly calls the LayerZero endpoint with the same parameters as Stargate.
-                </p>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <span className="text-xs bg-purple-900/50 py-1 px-2 rounded">Advanced</span>
-                  </div>
-                  <Link href="/bridge/stargate-compatible">
-                    <Button variant="outline" className="border-purple-500 hover:bg-purple-900/20">
-                      Select
-                    </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
           </div>
 
           <div className="mt-12 w-full max-w-3xl">
@@ -130,30 +64,6 @@ export default function BridgePage() {
                       <h3 className="font-medium">LayerZero</h3>
                       <p className="text-sm text-gray-400">
                         Best for fast transfers with lower fees. Uses ultra-light client messaging.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-3">
-                    <div className="bg-green-600 p-2 rounded-full">
-                      <span className="text-white">2</span>
-                    </div>
-                    <div>
-                      <h3 className="font-medium">Hyperlane</h3>
-                      <p className="text-sm text-gray-400">
-                        Best for security-focused transfers. Uses a modular security model with validators.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-3">
-                    <div className="bg-purple-600 p-2 rounded-full">
-                      <span className="text-white">3</span>
-                    </div>
-                    <div>
-                      <h3 className="font-medium">Stargate</h3>
-                      <p className="text-sm text-gray-400">
-                        Best for user-friendly experience. Uses unified liquidity pools across chains.
                       </p>
                     </div>
                   </div>
