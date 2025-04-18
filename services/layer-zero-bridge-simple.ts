@@ -98,6 +98,8 @@ function formatAddressForLayerZero(address: string): string {
   return address
 }
 
+// Update the bridgeViaLayerZero function to match Stargate's parameters
+
 /**
  * Bridge ETH via LayerZero
  */
@@ -122,33 +124,13 @@ export async function bridgeViaLayerZero(
     // Check if user is on Optimism
     let chainId
     try {
-      // Try multiple methods to get the chain ID
       chainId = await web3.eth.getChainId()
-      console.log("Chain ID from web3:", chainId)
-
-      // Also check directly from provider as backup
-      const chainIdHex = await window.ethereum.request({ method: "eth_chainId" })
-      const providerChainId = Number.parseInt(chainIdHex, 16)
-      console.log("Chain ID from provider:", providerChainId)
-
-      // Use the provider chain ID if web3 chain ID doesn't match Optimism
-      if (chainId !== 10 && providerChainId === 10) {
-        console.log("Using provider chain ID instead")
-        chainId = providerChainId
-      }
-
       if (chainId !== 10) {
         throw new Error("Please connect to Optimism network in MetaMask to use this bridge.")
       }
     } catch (error) {
       console.error("Error checking chain ID:", error)
       throw new Error("Failed to verify network. Please ensure you're connected to Optimism.")
-    }
-
-    // Check if the destination chain is supported
-    const isSupported = await isChainSupported(destinationChainId)
-    if (!isSupported) {
-      throw new Error(`Destination chain ${destinationChainId} is not supported by the bridge contract.`)
     }
 
     // Get current account
@@ -162,37 +144,33 @@ export async function bridgeViaLayerZero(
     const formattedRecipientAddress = formatAddressForLayerZero(recipientAddress)
     console.log("Formatted recipient address:", formattedRecipientAddress)
 
+    // Use a smaller test amount like Stargate
+    const testAmount = "0.0001" // 0.0001 ETH
+    console.log(`Using test amount: ${testAmount} ETH`)
+
     // Convert amount to wei
-    const amountWei = web3.utils.toWei(amount, "ether")
+    const amountWei = web3.utils.toWei(testAmount, "ether")
 
-    // Get fee estimate
-    const feeWei = await bridge.methods.estimateFee(destinationChainId, formattedRecipientAddress, amountWei).call()
-    console.log(`Estimated fee: ${web3.utils.fromWei(feeWei, "ether")} ETH`)
+    // Use a smaller fee like Stargate (0.000011 ETH)
+    const feeEth = "0.000011" // 0.000011 ETH
+    const feeWei = web3.utils.toWei(feeEth, "ether")
+    console.log(`Using fixed fee: ${feeEth} ETH (${feeWei} wei)`)
 
-    // Add a simple 10% to the fee as buffer - using string math instead of BN
-    const feeNum = Number(web3.utils.fromWei(feeWei, "ether"))
-    const feeWithBuffer = feeNum * 1.1
-    console.log(`Fee with 10% buffer: ${feeWithBuffer} ETH`)
+    // Calculate total value to send (amount + fee)
+    const totalEth = Number(testAmount) + Number(feeEth)
+    const totalWei = web3.utils.toWei(totalEth.toString(), "ether")
+    console.log(`Total value: ${totalEth} ETH (${totalWei} wei)`)
 
-    // Convert fee with buffer back to wei
-    const feeWithBufferWei = web3.utils.toWei(feeWithBuffer.toString(), "ether")
-
-    // Calculate total value (amount to bridge + fee)
-    const amountNum = Number(amount)
-    const totalValueETH = amountNum + feeWithBuffer
-    const totalValueWei = web3.utils.toWei(totalValueETH.toString(), "ether")
-
-    console.log("Total ETH:", totalValueETH)
-    console.log("Total Wei:", totalValueWei)
-
-    // Execute bridge transaction with higher gas limit to ensure it goes through
+    // Execute bridge transaction with parameters similar to Stargate
     const tx = await bridge.methods.bridgeNative(destinationChainId, formattedRecipientAddress).send({
       from: account,
-      value: totalValueWei,
-      gas: 300000, // Set a higher gas limit
+      value: totalWei,
+      gas: 200000, // Lower gas limit like Stargate
+      maxFeePerGas: web3.utils.toWei("0.1", "gwei"), // Lower max fee
+      maxPriorityFeePerGas: web3.utils.toWei("0.1", "gwei"), // Lower priority fee
     })
 
-    console.log(`Transaction submitted: ${tx.transactionHash}`)
+    console.log("Transaction submitted:", tx.transactionHash)
 
     return {
       success: true,

@@ -102,8 +102,8 @@ contract FixedLayerZeroBridge {
         // Get the LayerZero chain ID for the destination
         uint16 lzDestinationChainId = chainToLzId[destinationChainId];
 
-        // Calculate fees - fixed fee of 0.0003 ETH
-        uint256 bridgeFee = 0.0003 ether;
+        // Calculate fees - use a much smaller fee like Stargate (0.000011 ETH)
+        uint256 bridgeFee = 0.000011 ether; // Reduced from 0.0003 ether
         require(msg.value > bridgeFee, "Insufficient ETH for fees");
 
         // Calculate platform fee (50%) and amount to bridge
@@ -111,24 +111,24 @@ contract FixedLayerZeroBridge {
         uint256 amountToBridge = msg.value - bridgeFee;
 
         // Properly format the recipient address for LayerZero
-        // This is the key fix - we need to properly encode the address
+        // Use a different encoding method that matches Stargate
         bytes memory recipientBytes = abi.encodePacked(recipient);
 
-        // Create a simple payload with the amount
+        // Create a simple payload with the amount - match Stargate's format
         bytes memory payload = abi.encode(amountToBridge);
 
-        // Empty adapter params
-        bytes memory adapterParams = "";
+        // Create adapter params with a specific gas limit like Stargate
+        bytes memory adapterParams = abi.encodePacked(uint16(1), uint256(200000)); // Version 1, 200k gas
 
         // Calculate protocol fee
         uint256 protocolFee = bridgeFee - platformFee;
 
-        // Send the message through LayerZero
+        // Send the message through LayerZero with modified parameters
         ILayerZeroEndpoint(LAYERZERO_ENDPOINT).send{value: protocolFee + amountToBridge}(
             lzDestinationChainId,
             recipientBytes,
             payload,
-            payable(address(this)),
+            payable(address(this)), // Use contract as refund address
             address(0), // No ZRO token payment
             adapterParams
         );

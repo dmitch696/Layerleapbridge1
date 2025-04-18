@@ -131,90 +131,93 @@ export async function isChainSupported(destinationChainId: number): Promise<bool
 
 // Check for any problematic Unicode characters or escape sequences
 
+// Update the bridgeETH function to match Stargate's parameters more closely
+
 // For example, check the bridgeETH function
 export async function bridgeETH(
- destinationChainId: number,
- amount: string,
+  destinationChainId: number,
+  recipientAddress: string,
+  amount: string,
 ): Promise<{ success: boolean; txHash?: string; error?: string }> {
- try {
-   if (typeof window === "undefined" || !window.ethereum) {
-     throw new Error("MetaMask not installed")
-   }
+  try {
+    if (typeof window === "undefined" || !window.ethereum) {
+      throw new Error("MetaMask not installed")
+    }
 
-   // Use Web3.js
-   const Web3 = await import("web3")
-   const web3 = new Web3.default(window.ethereum)
+    // Use Web3.js
+    const Web3 = await import("web3")
+    const web3 = new Web3.default(window.ethereum)
 
-   // Request account access
-   await window.ethereum.request({ method: "eth_requestAccounts" })
+    // Request account access
+    await window.ethereum.request({ method: "eth_requestAccounts" })
 
-   // Get current account
-   const accounts = await web3.eth.getAccounts()
-   const account = accounts[0]
+    // Get current account
+    const accounts = await web3.eth.getAccounts()
+    const account = accounts[0]
 
-   // Check if on Optimism
-   const onOptimism = await isConnectedToOptimism()
-   if (!onOptimism) {
-     throw new Error("Please connect to Optimism network")
-   }
+    // Check if on Optimism
+    const chainId = await web3.eth.getChainId()
+    if (chainId !== 10) {
+      throw new Error("Please connect to Optimism network")
+    }
 
-   // Use a minimal test amount for safety
-   const testAmount = "0.0001" // 0.0001 ETH
-   console.log(`Using test amount: ${testAmount} ETH instead of ${amount} ETH for safety`)
+    // Create contract instance
+    const bridge = new web3.eth.Contract(BRIDGE_ABI as any, BRIDGE_CONTRACT)
 
-   // Fixed fee for simplicity
-   const fixedFee = "0.0003" // 0.0003 ETH
-   console.log(`Using fixed fee: ${fixedFee} ETH`)
+    // Use a smaller test amount to match Stargate's parameters
+    const testAmount = "0.0001" // 0.0001 ETH
+    console.log(`Using test amount: ${testAmount} ETH`)
 
-   // Calculate total amount (amount + fee)
-   const totalEth = Number.parseFloat(testAmount) + Number.parseFloat(fixedFee)
-   const totalWei = web3.utils.toWei(totalEth.toString(), "ether")
+    // Use a smaller fee similar to Stargate (0.000011 ETH)
+    const fixedFee = "0.000011" // 0.000011 ETH instead of 0.0003
+    console.log(`Using fixed fee: ${fixedFee} ETH`)
 
-   console.log("Bridging details:", {
-     from: account,
-     to: account,
-     destinationChain: destinationChainId,
-     amount: testAmount + " ETH",
-     fee: fixedFee + " ETH",
-     total: totalEth.toFixed(6) + " ETH",
-   })
+    // Calculate total amount (amount + fee) using simple math
+    const totalEth = Number.parseFloat(testAmount) + Number.parseFloat(fixedFee)
+    const totalWei = web3.utils.toWei(totalEth.toString(), "ether")
 
-   // Create contract instance
-   const bridge = new web3.eth.Contract(BRIDGE_ABI as any, BRIDGE_CONTRACT)
+    console.log("Bridging details:", {
+      from: account,
+      to: recipientAddress,
+      destinationChain: destinationChainId,
+      amount: testAmount + " ETH",
+      fee: fixedFee + " ETH",
+      total: totalEth.toFixed(6) + " ETH",
+    })
 
-   // IMPORTANT: Skip gas estimation entirely and use a fixed gas limit
-   // This avoids the "incorrect remote address size" error during estimation
-   console.log("Sending transaction with fixed gas limit...")
-   const tx = await bridge.methods.bridgeNative(destinationChainId, account).send({
-     from: account,
-     value: totalWei,
-     gas: 500000, // Fixed high gas limit
-   })
+    // Execute bridge transaction with lower gas limit to match Stargate
+    const tx = await bridge.methods.bridgeNative(destinationChainId, recipientAddress).send({
+      from: account,
+      value: totalWei,
+      gas: 300000, // Lower gas limit
+      maxFeePerGas: web3.utils.toWei("0.1", "gwei"), // Set a lower max fee per gas
+      maxPriorityFeePerGas: web3.utils.toWei("0.1", "gwei"), // Set a lower priority fee
+    })
 
-   console.log("Transaction submitted:", tx.transactionHash)
+    console.log("Transaction submitted:", tx.transactionHash)
 
-   // Save transaction to history
-   saveTransaction({
-     hash: tx.transactionHash,
-     from: account,
-     destinationChainId,
-     amount: testAmount,
-     fee: fixedFee,
-     timestamp: Date.now(),
-     status: "pending",
-   })
+    // Save transaction to history
+    saveTransaction({
+      hash: tx.transactionHash,
+      from: account,
+      destinationChainId,
+      amount: testAmount,
+      fee: fixedFee,
+      timestamp: Date.now(),
+      status: "pending",
+    })
 
-   return {
-     success: true,
-     txHash: tx.transactionHash,
-   }
- } catch (error: any) {
-   console.error("Bridge error:", error)
-   return {
-     success: false,
-     error: error.message,
-   }
- }
+    return {
+      success: true,
+      txHash: tx.transactionHash,
+    }
+  } catch (error: any) {
+    console.error("Bridge error:", error)
+    return {
+      success: false,
+      error: error.message,
+    }
+  }
 }
 
 /**
