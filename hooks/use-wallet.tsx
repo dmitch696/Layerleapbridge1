@@ -127,27 +127,35 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
     if (window.ethereum) {
       console.log("Setting up event listeners for accountsChanged and chainChanged")
-      window.ethereum.on("accountsChanged", handleAccountsChanged)
-      window.ethereum.on("chainChanged", handleChainChanged)
+      try {
+        window.ethereum.on("accountsChanged", handleAccountsChanged)
+        window.ethereum.on("chainChanged", handleChainChanged)
 
-      // Check if already connected
-      window.ethereum
-        .request({ method: "eth_chainId" })
-        .then((chainIdHex: string) => {
-          const chainId = Number.parseInt(chainIdHex, 16)
-          setChainId(chainId)
-          console.log("Initial chain ID:", chainId)
-        })
-        .catch((error: any) => {
-          console.error("Error checking accounts:", error)
-        })
+        // Check if already connected
+        window.ethereum
+          .request({ method: "eth_chainId" })
+          .then((chainIdHex: string) => {
+            const chainId = Number.parseInt(chainIdHex, 16)
+            setChainId(chainId)
+            console.log("Initial chain ID:", chainId)
+          })
+          .catch((error: any) => {
+            console.error("Error checking accounts:", error)
+          })
+      } catch (e) {
+        console.error("Error setting up event listeners", e)
+      }
     }
 
     return () => {
       if (window.ethereum) {
         console.log("Removing event listeners for accountsChanged and chainChanged")
-        window.ethereum.removeListener("accountsChanged", handleAccountsChanged)
-        window.ethereum.removeListener("chainChanged", handleChainChanged)
+        try {
+          window.ethereum.removeListener("accountsChanged", handleAccountsChanged)
+          window.ethereum.removeListener("chainChanged", handleChainChanged)
+        } catch (e) {
+          console.error("Error removing event listeners", e)
+        }
       }
     }
   }, [address, disconnect, isMetaMaskAvailable])

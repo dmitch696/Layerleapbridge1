@@ -21,7 +21,7 @@ export default function OptimizedBridge() {
   const [isCheckingNetwork, setIsCheckingNetwork] = useState(true)
   const [txHash, setTxHash] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const { isConnected, chainId, isMetaMaskAvailable } = useWallet()
+  const { isConnected: walletIsConnected, chainId, isMetaMaskAvailable, setIsConnected } = useWallet()
   const [web3, setWeb3] = useState<any>(null)
   const [account, setAccount] = useState<string | null>(null)
   const [balance, setBalance] = useState<string | null>(null)
@@ -30,6 +30,7 @@ export default function OptimizedBridge() {
   const [isCheckingSupport, setIsCheckingSupport] = useState(false)
   const [networkCheckAttempts, setNetworkCheckAttempts] = useState(0)
   const [manualChainId, setManualChainId] = useState<number | null>(null)
+  const [isOnOptimism, setIsOnOptimism] = useState(false)
 
   // Initialize Web3 when component mounts
   useEffect(() => {
@@ -66,9 +67,13 @@ export default function OptimizedBridge() {
             setAccount(account)
 
             // Check if on Optimism
-            const onOptimism = await isConnectedToOptimism()
-            console.log("Is on Optimism:", onOptimism)
-            setIsOnOptimism(onOptimism)
+            try {
+              const onOptimism = await isConnectedToOptimism()
+              console.log("Is on Optimism:", onOptimism)
+              setIsOnOptimism(onOptimism)
+            } catch (e) {
+              console.error("Error checking Optimism connection", e)
+            }
 
             // Get account balance if web3 is initialized
             if (web3 && account) {
@@ -93,7 +98,7 @@ export default function OptimizedBridge() {
 
     // Set up event listeners for account and chain changes
     if (window.ethereum) {
-      const handleAccountsChanged = async (accounts: string[]) => {
+      const handleAccountsChanged = (accounts: string[]) => {
         setIsConnected(accounts.length > 0)
         if (accounts.length > 0) {
           setAccount(accounts[0])
@@ -102,15 +107,21 @@ export default function OptimizedBridge() {
           setNetworkCheckAttempts(0)
 
           // Check if on Optimism
-          const onOptimism = await isConnectedToOptimism()
-          setIsOnOptimism(onOptimism)
+          try {
+            isConnectedToOptimism().then((onOptimism) => {
+              setIsOnOptimism(onOptimism)
+            })
+          } catch (e) {
+            console.error("Error checking Optimism connection", e)
+          }
 
-          // Get balance if web3 is initialized
+          // Get account balance if web3 is initialized
           if (web3) {
             try {
-              const balanceWei = await web3.eth.getBalance(accounts[0])
-              const balanceEth = web3.utils.fromWei(balanceWei, "ether")
-              setBalance(balanceEth)
+              web3.eth.getBalance(accounts[0]).then((balanceWei) => {
+                const balanceEth = web3.utils.fromWei(balanceWei, "ether")
+                setBalance(balanceEth)
+              })
             } catch (balanceError) {
               console.error("Error getting balance:", balanceError)
             }
@@ -122,42 +133,59 @@ export default function OptimizedBridge() {
         }
       }
 
-      const handleChainChanged = async (chainIdHex: string) => {
+      const handleChainChanged = (chainIdHex: string) => {
         console.log("Chain changed to:", chainIdHex)
+        setManualChainId(Number.parseInt(chainIdHex, 16))
 
         // Reset network check attempts when chain changes
         setNetworkCheckAttempts(0)
 
         // Check if on Optimism
-        const onOptimism = await isConnectedToOptimism()
-        setIsOnOptimism(onOptimism)
+        try {
+          isConnectedToOptimism().then((onOptimism) => {
+            setIsOnOptimism(onOptimism)
+          })
+        } catch (e) {
+          console.error("Error checking Optimism connection", e)
+        }
 
         // Update balance if account exists and web3 is initialized
         if (web3 && account) {
           try {
-            const balanceWei = await web3.eth.getBalance(account)
-            const balanceEth = web3.utils.fromWei(balanceWei, "ether")
-            setBalance(balanceEth)
+            web3.eth.getBalance(account).then((balanceWei) => {
+              const balanceEth = web3.utils.fromWei(balanceWei, "ether")
+              setBalance(balanceEth)
+            })
           } catch (balanceError) {
             console.error("Error getting balance:", balanceError)
           }
         }
       }
 
-      window.ethereum.on("accountsChanged", handleAccountsChanged)
-      window.ethereum.on("chainChanged", handleChainChanged)
+      try {
+        window.ethereum.on("accountsChanged", handleAccountsChanged)
+        window.ethereum.on("chainChanged", handleChainChanged)
+      } catch (e) {
+        console.error("Error setting up event listeners", e)
+      }
 
       // Cleanup
       return () => {
-        window.ethereum.removeListener("accountsChanged", handleAccountsChanged)
-        window.ethereum.removeListener("chainChanged", handleChainChanged)
+        if (window.ethereum) {
+          try {
+            window.ethereum.removeListener("accountsChanged", handleAccountsChanged)
+            window.ethereum.removeListener("chainChanged", handleChainChanged)
+          } catch (e) {
+            console.error("Error removing event listeners", e)
+          }
+        }
       }
     }
   }, [web3, account, networkCheckAttempts])
 
   // Retry network check if not on Optimism
   useEffect(() => {
-    if (isConnected && !isOnOptimism && networkCheckAttempts < 3) {
+    if (walletIsConnected && !isOnOptimism && networkCheckAttempts < 3) {
       const timer = setTimeout(() => {
         console.log("Retrying network check, attempt:", networkCheckAttempts + 1)
         setNetworkCheckAttempts((prev) => prev + 1)
@@ -165,12 +193,12 @@ export default function OptimizedBridge() {
 
       return () => clearTimeout(timer)
     }
-  }, [isConnected, isOnOptimism, networkCheckAttempts])
+  }, [walletIsConnected, isOnOptimism, networkCheckAttempts])
 
   // Check which chains are supported
   useEffect(() => {
     async function checkSupportedChains() {
-      if (!isConnected) return
+      if (!walletIsConnected) return
 
       setIsCheckingSupport(true)
       const supported: Record<number, boolean> = {}
@@ -185,7 +213,7 @@ export default function OptimizedBridge() {
     }
 
     checkSupportedChains()
-  }, [isConnected, isOnOptimism])
+  }, [walletIsConnected, isOnOptimism])
 
   const connectWallet = async () => {
     if (!window.ethereum) {
@@ -209,8 +237,12 @@ export default function OptimizedBridge() {
         setNetworkCheckAttempts(0)
 
         // Check if on Optimism
-        const onOptimism = await isConnectedToOptimism()
-        setIsOnOptimism(onOptimism)
+        try {
+          const onOptimism = await isConnectedToOptimism()
+          setIsOnOptimism(onOptimism)
+        } catch (e) {
+          console.error("Error checking Optimism connection", e)
+        }
       }
 
       toast({
@@ -301,7 +333,7 @@ export default function OptimizedBridge() {
 
     try {
       // Check if connected
-      if (!isConnected) {
+      if (!walletIsConnected) {
         await connectWallet()
         setIsLoading(false)
         return
@@ -378,7 +410,7 @@ export default function OptimizedBridge() {
             <p className="text-xs text-gray-400 mt-1">This bridge allows transfers from Optimism to other chains</p>
           </div>
 
-          {isConnected && !isOnOptimism && (
+          {walletIsConnected && !isOnOptimism && (
             <div className="p-3 bg-yellow-900/30 rounded mb-4">
               <p className="text-sm text-yellow-400">
                 Network detection issue. You appear to be connected to Optimism, but our app can't detect it.
@@ -414,9 +446,13 @@ export default function OptimizedBridge() {
             >
               <option value="">Select destination chain</option>
               {CHAINS.map((chain) => (
-                <option key={chain.id} value={chain.id} disabled={isConnected && supportedChains[chain.id] === false}>
+                <option
+                  key={chain.id}
+                  value={chain.id}
+                  disabled={walletIsConnected && supportedChains[chain.id] === false}
+                >
                   {chain.logo} {chain.name}
-                  {isConnected && supportedChains[chain.id] === false ? " (Not Supported)" : ""}
+                  {walletIsConnected && supportedChains[chain.id] === false ? " (Not Supported)" : ""}
                 </option>
               ))}
             </select>
@@ -443,13 +479,13 @@ export default function OptimizedBridge() {
             />
           </div>
 
-          <Button type="submit" className="w-full" disabled={isLoading || isCheckingNetwork}>
+          <Button type="submit" className="w-full" disabled={isLoading || isCheckingNetwork || !isMetaMaskAvailable}>
             {isLoading ? (
               <span className="flex items-center">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Processing...
               </span>
-            ) : !isConnected && isMetaMaskAvailable ? (
+            ) : !walletIsConnected && isMetaMaskAvailable ? (
               "Connect Wallet"
             ) : !isMetaMaskAvailable ? (
               "MetaMask Not Available"

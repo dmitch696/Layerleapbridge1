@@ -21,12 +21,12 @@ export default function LayerZeroBridgePage() {
             <OptimizedBridge />
           </div>
 
-          {debugInfo && (
-            <div className="max-w-2xl mx-auto mt-8 p-6 bg-gray-800 rounded-lg">
-              <h2 className="text-xl font-bold mb-4">Debug Information</h2>
-              <pre className="text-sm whitespace-pre-wrap">{JSON.stringify(debugInfo, null, 2)}</pre>
-            </div>
-          )}
+          <div className="max-w-2xl mx-auto mt-8 p-6 bg-gray-800 rounded-lg">
+            <h2 className="text-xl font-bold mb-4">Debug Information</h2>
+            <p>Chain ID: {debugInfo?.chainId}</p>
+            <p>Is Connected: {debugInfo?.isConnected ? "Yes" : "No"}</p>
+            <pre className="text-sm whitespace-pre-wrap">{JSON.stringify(debugInfo, null, 2)}</pre>
+          </div>
 
           <div className="max-w-2xl mx-auto mt-8 p-6 bg-gray-800 rounded-lg">
             <h2 className="text-xl font-bold mb-4">About LayerZero</h2>
