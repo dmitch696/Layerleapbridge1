@@ -50,6 +50,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
+      console.log("Connecting to MetaMask...")
       // Request account access
       const accounts = await window.ethereum.request({ method: "eth_requestAccounts" })
 
@@ -62,6 +63,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         setChainId(Number.parseInt(chainIdHex, 16))
 
         console.log("Connected to MetaMask:", accounts[0])
+        console.log("Chain ID:", chainIdHex)
       }
     } catch (error) {
       console.error("Error connecting to MetaMask:", error)
@@ -70,6 +72,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   // Disconnect from MetaMask
   const disconnect = useCallback(() => {
+    console.log("Disconnecting from MetaMask...")
     setAddress(null)
     setIsConnected(false)
     setChainId(null)
@@ -84,12 +87,15 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         // Convert chain ID to hexadecimal
         const chainIdHex = `0x${newChainId.toString(16)}`
 
+        console.log(`Attempting to switch to chain ID: ${chainIdHex}`)
+
         await window.ethereum.request({
           method: "wallet_switchEthereumChain",
           params: [{ chainId: chainIdHex }],
         })
 
         setChainId(newChainId)
+        console.log(`Successfully switched to chain ID: ${newChainId}`)
         return true
       } catch (error) {
         console.error("Error switching network:", error)

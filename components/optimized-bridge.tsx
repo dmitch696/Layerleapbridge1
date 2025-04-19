@@ -430,6 +430,23 @@ export default function OptimizedBridge() {
               "Bridge ETH via LayerZero"
             )}
           </Button>
+          {isConnected && !isOnOptimism && (
+            <div className="p-3 bg-yellow-900/30 rounded mt-4">
+              <p className="text-sm text-yellow-400">
+                It appears you are not connected to the Optimism network. Please switch to Optimism to use the bridge.
+              </p>
+              <Button onClick={forceNetworkRefresh} variant="outline" size="sm" className="mt-2 w-full">
+                {isCheckingNetwork ? (
+                  <span className="flex items-center">
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Checking...
+                  </span>
+                ) : (
+                  "Refresh Network Status"
+                )}
+              </Button>
+            </div>
+          )}
         </form>
 
         {txHash && (

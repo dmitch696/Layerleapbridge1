@@ -16,6 +16,7 @@ const CHAIN_DATA: { [chainId: number]: { blockExplorer: string } } = {
  */
 export async function isConnectedToOptimism(): Promise<boolean> {
   if (typeof window === "undefined" || !window.ethereum) {
+    console.log("MetaMask not available")
     return false
   }
 
