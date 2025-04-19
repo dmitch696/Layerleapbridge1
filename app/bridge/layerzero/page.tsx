@@ -1,8 +1,13 @@
-import OptimizedBridge from "@/components/optimized-bridge"
+"use client"
+
 import Header from "@/components/header"
 import Footer from "@/components/footer"
+import OptimizedBridge from "@/components/optimized-bridge"
+import { useState } from "react"
 
 export default function LayerZeroBridgePage() {
+  const [debugInfo, setDebugInfo] = useState<any>(null)
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-900 text-white">
       <Header />
@@ -15,6 +20,13 @@ export default function LayerZeroBridgePage() {
           <div className="w-full max-w-md mb-6">
             <OptimizedBridge />
           </div>
+
+          {debugInfo && (
+            <div className="max-w-2xl mx-auto mt-8 p-6 bg-gray-800 rounded-lg">
+              <h2 className="text-xl font-bold mb-4">Debug Information</h2>
+              <pre className="text-sm whitespace-pre-wrap">{JSON.stringify(debugInfo, null, 2)}</pre>
+            </div>
+          )}
 
           <div className="max-w-2xl mx-auto mt-8 p-6 bg-gray-800 rounded-lg">
             <h2 className="text-xl font-bold mb-4">About LayerZero</h2>

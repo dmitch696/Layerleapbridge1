@@ -21,7 +21,7 @@ const WalletContext = createContext<WalletContextType>({
   isConnected: false,
   chainId: null,
   connect: async () => {},
-  disconnect: () => {},
+  disconnect: async () => {},
   switchNetwork: async () => false,
   isMetaMaskAvailable: false,
 })
@@ -110,6 +110,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     if (!isMetaMaskAvailable) return
 
     const handleAccountsChanged = (accounts: string[]) => {
+      console.log("accountsChanged event:", accounts)
       if (accounts.length === 0) {
         // User disconnected their wallet
         disconnect()
@@ -120,10 +121,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     }
 
     const handleChainChanged = (chainIdHex: string) => {
+      console.log("chainChanged event:", chainIdHex)
       setChainId(Number.parseInt(chainIdHex, 16))
     }
 
     if (window.ethereum) {
+      console.log("Setting up event listeners for accountsChanged and chainChanged")
       window.ethereum.on("accountsChanged", handleAccountsChanged)
       window.ethereum.on("chainChanged", handleChainChanged)
 
@@ -133,6 +136,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         .then((chainIdHex: string) => {
           const chainId = Number.parseInt(chainIdHex, 16)
           setChainId(chainId)
+          console.log("Initial chain ID:", chainId)
         })
         .catch((error: any) => {
           console.error("Error checking accounts:", error)
@@ -141,6 +145,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       if (window.ethereum) {
+        console.log("Removing event listeners for accountsChanged and chainChanged")
         window.ethereum.removeListener("accountsChanged", handleAccountsChanged)
         window.ethereum.removeListener("chainChanged", handleChainChanged)
       }

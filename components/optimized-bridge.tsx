@@ -11,6 +11,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { Loader2 } from "lucide-react"
 import { isConnectedToOptimism, switchToOptimism } from "@/utils/network-utils"
 import { CHAINS, bridgeETH, isChainSupported } from "@/services/resilient-bridge-service"
+import { useWallet } from "@/hooks/use-wallet"
 
 export default function OptimizedBridge() {
   const { toast } = useToast()
@@ -20,8 +21,7 @@ export default function OptimizedBridge() {
   const [isCheckingNetwork, setIsCheckingNetwork] = useState(true)
   const [txHash, setTxHash] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [isConnected, setIsConnected] = useState(false)
-  const [isOnOptimism, setIsOnOptimism] = useState(false)
+  const { isConnected, chainId, isMetaMaskAvailable } = useWallet()
   const [web3, setWeb3] = useState<any>(null)
   const [account, setAccount] = useState<string | null>(null)
   const [balance, setBalance] = useState<string | null>(null)
@@ -29,6 +29,7 @@ export default function OptimizedBridge() {
   const [supportedChains, setSupportedChains] = useState<Record<number, boolean>>({})
   const [isCheckingSupport, setIsCheckingSupport] = useState(false)
   const [networkCheckAttempts, setNetworkCheckAttempts] = useState(0)
+  const [manualChainId, setManualChainId] = useState<number | null>(null)
 
   // Initialize Web3 when component mounts
   useEffect(() => {
@@ -266,6 +267,32 @@ export default function OptimizedBridge() {
     }
   }
 
+  const handleManualChainIdCheck = async () => {
+    if (window.ethereum) {
+      try {
+        const chainIdHex = await window.ethereum.request({ method: "eth_chainId" })
+        const chainId = Number.parseInt(chainIdHex, 16)
+        setManualChainId(chainId)
+        toast({
+          title: "Manual Chain ID Check",
+          description: `Detected Chain ID: ${chainId}`,
+        })
+      } catch (error: any) {
+        toast({
+          title: "Manual Chain ID Check Failed",
+          description: error.message || "Failed to get chain ID",
+          variant: "destructive",
+        })
+      }
+    } else {
+      toast({
+        title: "MetaMask Not Found",
+        description: "Please install MetaMask to use this feature.",
+        variant: "destructive",
+      })
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -422,32 +449,22 @@ export default function OptimizedBridge() {
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Processing...
               </span>
-            ) : !isConnected ? (
+            ) : !isConnected && isMetaMaskAvailable ? (
               "Connect Wallet"
+            ) : !isMetaMaskAvailable ? (
+              "MetaMask Not Available"
             ) : !isOnOptimism ? (
               "Switch to Optimism"
             ) : (
               "Bridge ETH via LayerZero"
             )}
           </Button>
-          {isConnected && !isOnOptimism && (
-            <div className="p-3 bg-yellow-900/30 rounded mt-4">
-              <p className="text-sm text-yellow-400">
-                It appears you are not connected to the Optimism network. Please switch to Optimism to use the bridge.
-              </p>
-              <Button onClick={forceNetworkRefresh} variant="outline" size="sm" className="mt-2 w-full">
-                {isCheckingNetwork ? (
-                  <span className="flex items-center">
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Checking...
-                  </span>
-                ) : (
-                  "Refresh Network Status"
-                )}
-              </Button>
-            </div>
-          )}
         </form>
+
+        <Button variant="secondary" onClick={handleManualChainIdCheck} disabled={isLoading}>
+          Check Chain ID
+        </Button>
+        {manualChainId && <p>Detected Chain ID: {manualChainId}</p>}
 
         {txHash && (
           <div className="mt-4 p-3 bg-green-800/50 rounded">

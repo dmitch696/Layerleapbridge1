@@ -72,10 +72,12 @@ export async function isConnectedToOptimism(): Promise<boolean> {
  */
 export async function switchToOptimism(): Promise<boolean> {
   if (typeof window === "undefined" || !window.ethereum) {
+    console.log("MetaMask not available")
     return false
   }
 
   try {
+    console.log("Attempting to switch to Optimism network...")
     // Try to switch to Optimism
     await window.ethereum.request({
       method: "wallet_switchEthereumChain",
@@ -86,11 +88,14 @@ export async function switchToOptimism(): Promise<boolean> {
     await new Promise((resolve) => setTimeout(resolve, 1000))
 
     // Verify the switch was successful
-    return await isConnectedToOptimism()
+    const isNowOnOptimism = await isConnectedToOptimism()
+    console.log("Switch successful:", isNowOnOptimism)
+    return isNowOnOptimism
   } catch (switchError: any) {
     // This error code indicates that the chain has not been added to MetaMask
     if (switchError.code === 4902) {
       try {
+        console.log("Optimism network not found. Adding it...")
         await window.ethereum.request({
           method: "wallet_addEthereumChain",
           params: [
@@ -116,7 +121,9 @@ export async function switchToOptimism(): Promise<boolean> {
         await new Promise((resolve) => setTimeout(resolve, 1000))
 
         // Try switching again after adding
-        return await switchToOptimism()
+        const isNowOnOptimism = await isConnectedToOptimism()
+        console.log("Switch after add successful:", isNowOnOptimism)
+        return isNowOnOptimism
       } catch (addError) {
         console.error("Error adding Optimism network:", addError)
         return false
