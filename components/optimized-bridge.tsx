@@ -108,9 +108,8 @@ export default function OptimizedBridge() {
 
           // Check if on Optimism
           try {
-            isConnectedToOptimism().then((onOptimism) => {
-              setIsOnOptimism(onOptimism)
-            })
+            const onOptimism = await isConnectedToOptimism()
+            setIsOnOptimism(onOptimism)
           } catch (e) {
             console.error("Error checking Optimism connection", e)
           }
@@ -376,12 +375,12 @@ export default function OptimizedBridge() {
           description: "Your assets are being bridged. This may take 10-30 minutes to complete.",
         })
       } else {
-        setError(result.error || "Bridge transaction failed")
         toast({
           title: "Bridge Failed",
           description: result.error || "Failed to bridge assets",
           variant: "destructive",
         })
+        setError(result.error || "Bridge failed to bridge assets")
       }
     } catch (err: any) {
       setError(err.message)
