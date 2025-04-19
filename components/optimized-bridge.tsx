@@ -98,7 +98,7 @@ export default function OptimizedBridge() {
 
     // Set up event listeners for account and chain changes
     if (window.ethereum) {
-      const handleAccountsChanged = (accounts: string[]) => {
+      const handleAccountsChanged = async (accounts: string[]) => {
         setIsConnected(accounts.length > 0)
         if (accounts.length > 0) {
           setAccount(accounts[0])
@@ -133,7 +133,7 @@ export default function OptimizedBridge() {
         }
       }
 
-      const handleChainChanged = (chainIdHex: string) => {
+      const handleChainChanged = async (chainIdHex: string) => {
         console.log("Chain changed to:", chainIdHex)
         setManualChainId(Number.parseInt(chainIdHex, 16))
 
